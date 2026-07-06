@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, BarChart3, BookOpen, Briefcase, CheckCircle2, ClipboardCheck, Clock, Copy, Download, FileText, GitBranch, GraduationCap, Layers, Loader2, MessageSquare, PlusCircle, RefreshCw, Search, Send, Sparkles, Target, Upload, User, X } from 'lucide-react'
+import { BarChart3, BookOpen, Bot, Briefcase, Bug, CheckCircle2, Clock, Copy, Download, FileText, GitBranch, GraduationCap, Layers, Loader2, MessageCircle, PlusCircle, RefreshCw, Rocket, Route as RouteIcon, Search, Send, ShieldCheck, Sparkles, Target, Upload, User, X } from 'lucide-react'
 import ChatWindow from '../chat/ChatWindow'
 import WorkflowPanel from '../workflow/WorkflowPanel'
 import RealtimeModelMonitor from '../monitor/RealtimeModelMonitor'
@@ -130,37 +130,41 @@ function resumeFeedback(profile: string, targetRole: string) {
 
 export function HomePage({ onPrompt }: { onPrompt: (prompt: string) => void }) {
     const [input, setInput] = useState('')
-    const chatMessages = useStore(state => state.chatMessages)
-    const recentConversations = chatMessages
-        .filter(message => message.role === 'user')
-        .slice(-4)
-        .reverse()
-    const featureCards: Array<{ icon: typeof MessageSquare; title: string; description: string; href: Route }> = [
-        { icon: GraduationCap, title: 'Career Roadmap', description: 'Answer a few questions and generate a role-specific learning plan with milestones.', href: '/career-roadmap' as Route },
-        { icon: Briefcase, title: 'Project Builder', description: 'Build complete software projects with architecture, files, run steps, and debugging.', href: '/projects' as Route },
-        { icon: FileText, title: 'Resume Builder', description: 'Analyze your resume, improve bullets, and prepare ATS-friendly career material.', href: '/resume' as Route },
-        { icon: BookOpen, title: 'Knowledge Base', description: 'Upload PDFs, notes, and documents, then search your own learning material.', href: '/knowledge' as Route },
-        { icon: ClipboardCheck, title: 'Interview Prep', description: 'Practice technical and behavioral interviews with personalized AI feedback.', href: '/mentor' as Route },
-        { icon: User, title: 'Mentor', description: 'Ask for Socratic explanations, quizzes, study plans, and code walkthroughs.', href: '/mentor' as Route },
+    const featureCards: Array<{ icon: typeof MessageCircle; title: string; description: string; href: Route; tone: 'violet' | 'cyan' | 'emerald' | 'amber' | 'blue' | 'pink'; actionLabel: string }> = [
+        { icon: MessageCircle, title: 'AI Chat', description: 'Ask questions, solve problems, and get detailed explanations across your learning journey.', href: '/chat' as Route, tone: 'violet', actionLabel: 'Start chatting' },
+        { icon: Rocket, title: 'Project Builder', description: 'Generate complete applications with architecture, code, debugging, and exportable source files.', href: '/projects' as Route, tone: 'cyan', actionLabel: 'Build a project' },
+        { icon: RouteIcon, title: 'Career Roadmap', description: 'Turn a career goal into a personalized plan with milestones, skills, and portfolio proof.', href: '/career-roadmap' as Route, tone: 'emerald', actionLabel: 'Create roadmap' },
+        { icon: FileText, title: 'Resume Builder', description: 'Improve resume bullets, match role keywords, and create stronger ATS-friendly career material.', href: '/resume' as Route, tone: 'amber', actionLabel: 'Improve resume' },
+        { icon: BookOpen, title: 'Knowledge Base', description: 'Upload PDFs, notes, and documents, then search and learn from your own materials.', href: '/knowledge' as Route, tone: 'blue', actionLabel: 'Open knowledge' },
+        { icon: Target, title: 'Progress Tracker', description: 'Plan daily tasks, track weekly progress, and keep momentum across skills and projects.', href: '/progress' as Route, tone: 'pink', actionLabel: 'Track progress' },
     ]
     const steps = [
-        { icon: Target, title: 'Tell AI your goal', body: 'Describe the skill, role, project, resume, interview, or document you want help with.' },
-        { icon: Sparkles, title: 'AI builds a personalized plan', body: 'The platform routes your request into chat, roadmap, project, resume, mentor, or workflow tools.' },
-        { icon: CheckCircle2, title: 'Track progress', body: 'Convert recommendations into learning tasks, milestones, projects, and weekly progress.' },
-        { icon: GraduationCap, title: 'Achieve your goals', body: 'Keep iterating with AI until you have portfolio proof, interview readiness, and a clearer path.' },
+        { icon: Target, title: 'Tell AI your goal', body: 'Share what you want to learn, build, improve, or prepare for.' },
+        { icon: Bot, title: 'Agents plan the best path', body: 'The right workspace tool shapes your goal into a practical next step.' },
+        { icon: Rocket, title: 'Build, learn, or improve', body: 'Create projects, roadmaps, resume feedback, study plans, or interview practice.' },
+        { icon: CheckCircle2, title: 'Track progress and grow', body: 'Turn guidance into tasks, milestones, and repeatable learning momentum.' },
     ]
     const prompts = [
-        'Create AI Engineer roadmap',
-        'Build an Ecommerce Website',
-        'Review my Resume',
-        'Prepare me for Google Interview',
-        'Explain Transformers',
-        'Generate React Project',
+        'Create my AI/ML roadmap',
+        'Build an e-commerce app',
+        'Improve my resume',
+        'Prepare me for interviews',
+        'Explain machine learning',
+        'Generate project ideas',
     ]
-    const advantages = [
-        'Conversation-first workspace instead of scattered forms and dashboards.',
-        'Career, learning, project, resume, mentor, knowledge, and workflow tools in one flow.',
-        'Local-first model integration with graceful errors when the AI backend is unavailable.',
+    const agents = [
+        { icon: RouteIcon, title: 'Career Agent', body: 'Maps goals into learning phases, skills, milestones, and portfolio direction.' },
+        { icon: Rocket, title: 'Project Agent', body: 'Turns requirements into app ideas, architecture, files, run steps, and iteration plans.' },
+        { icon: FileText, title: 'Resume Agent', body: 'Improves bullets, keywords, structure, and role alignment for stronger applications.' },
+        { icon: BookOpen, title: 'Knowledge Agent', body: 'Helps you search, summarize, and learn from uploaded notes and documents.' },
+        { icon: Bot, title: 'Mentor Agent', body: 'Explains concepts, asks better questions, and guides study or interview practice.' },
+        { icon: Bug, title: 'Debug Agent', body: 'Reads logs and error descriptions, then suggests fixes and next diagnostic steps.' },
+    ]
+    const valueCards = [
+        { icon: ShieldCheck, title: 'Private & Local-Friendly', body: 'Designed to work with local AI setups and clear backend status when available.' },
+        { icon: GraduationCap, title: 'Built for Students', body: 'Focused on learning goals, career readiness, and practical skill development.' },
+        { icon: Rocket, title: 'Project-Based Learning', body: 'Moves beyond advice by helping you build portfolio-worthy applications.' },
+        { icon: Briefcase, title: 'Career-Oriented Guidance', body: 'Connects roadmaps, projects, resumes, and interview prep into one workflow.' },
     ]
 
     function submit(prompt = input) {
@@ -169,21 +173,22 @@ export function HomePage({ onPrompt }: { onPrompt: (prompt: string) => void }) {
     }
 
     return (
-        <div className="mx-auto max-w-7xl space-y-14 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
-            <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-2xl border border-border bg-card px-5 py-16 shadow-xl shadow-black/5 sm:px-8 lg:px-12 lg:py-24">
-                <div className="pointer-events-none absolute inset-0 bg-[var(--hero-gradient)]" />
+        <div className="mx-auto max-w-7xl space-y-16 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+            <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-2xl border border-white/10 bg-card px-5 py-16 shadow-2xl shadow-black/10 sm:px-8 lg:px-12 lg:py-24">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(139,92,246,0.25),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(34,211,238,0.22),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.08),transparent)] dark:bg-[radial-gradient(circle_at_20%_10%,rgba(139,92,246,0.28),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(34,211,238,0.2),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.05),transparent)]" />
+                <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
                 <div className="relative mx-auto max-w-[900px] text-center">
-                    <Badge className="border-cyan-400/25 bg-cyan-400/10 text-cyan-300">Student AI Platform</Badge>
-                    <h1 className="mx-auto mt-6 text-5xl font-semibold leading-tight text-foreground sm:text-6xl lg:text-7xl">Your Personal AI Career & Development Platform</h1>
-                    <p className="mx-auto mt-6 max-w-[900px] text-lg leading-8 text-muted-foreground sm:text-xl">One intelligent workspace to learn, build projects, create resumes, prepare interviews, organize knowledge and accelerate your career.</p>
+                    <Badge className="border-violet-400/25 bg-violet-500/10 text-violet-300">Student AI Platform</Badge>
+                    <h1 className="mx-auto mt-6 text-4xl font-semibold leading-tight text-foreground sm:text-6xl lg:text-7xl">Your AI Workspace for Learning, Building & Career Growth</h1>
+                    <p className="mx-auto mt-6 max-w-[880px] text-lg leading-8 text-muted-foreground sm:text-xl">AI agents help you learn new skills, build real projects, improve your resume, plan your career, and achieve your goals - all in one place.</p>
 
-                    <Card className="mx-auto mt-10 max-w-4xl p-3">
+                    <Card className="mx-auto mt-10 max-w-4xl border-white/10 bg-card/90 p-3 shadow-2xl shadow-black/10 backdrop-blur-xl">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                             <textarea
                                 value={input}
                                 onChange={event => setInput(event.target.value)}
                                 onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }}
-                                placeholder="What would you like to achieve today?"
+                                placeholder="What would you like to learn, build, or improve today?"
                                 className="min-h-[104px] flex-1 resize-none rounded-2xl border border-border bg-background px-5 py-4 text-lg leading-8 text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent focus:ring-2 focus:ring-cyan-400/20"
                             />
                             <Button onClick={() => submit()} variant="primary" size="lg" className="h-14 bg-cyan-400 text-slate-950 hover:bg-cyan-300" aria-label="Send prompt">
@@ -200,13 +205,13 @@ export function HomePage({ onPrompt }: { onPrompt: (prompt: string) => void }) {
 
                     <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                         <Link href="/chat" className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-xl shadow-black/10 transition hover:-translate-y-0.5 hover:opacity-90">
-                            <MessageSquare size={18} /> Start AI Chat
+                            <MessageCircle size={18} /> Ask AI
                         </Link>
                         <Link href="/projects" className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-2xl border border-border bg-card px-6 py-3 text-base font-semibold text-foreground shadow-xl shadow-black/5 transition hover:-translate-y-0.5 hover:bg-secondary">
-                            <Briefcase size={18} /> Build a Project
+                            <Rocket size={18} /> Project Builder
                         </Link>
                         <Link href="/career-roadmap" className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-2xl border border-border bg-background/70 px-6 py-3 text-base font-semibold text-foreground shadow-xl shadow-black/5 transition hover:-translate-y-0.5 hover:bg-secondary">
-                            <GraduationCap size={18} /> Create Career Roadmap
+                            <RouteIcon size={18} /> Career Roadmap
                         </Link>
                     </div>
                 </div>
@@ -214,21 +219,43 @@ export function HomePage({ onPrompt }: { onPrompt: (prompt: string) => void }) {
 
             <section>
                 <div className="mx-auto max-w-3xl text-center">
-                    <Badge>Quick actions</Badge>
-                    <h2 className="mt-4 text-3xl font-semibold text-foreground sm:text-4xl">Choose the work you want AI to help with</h2>
-                    <p className="mt-4 text-base leading-8 text-muted-foreground">Each action opens a working tool connected to the backend or your local workspace state.</p>
+                    <Badge>Workspace tools</Badge>
+                    <h2 className="mt-4 text-3xl font-semibold text-foreground sm:text-4xl">Everything students need to learn, build, and prepare</h2>
+                    <p className="mt-4 text-base leading-8 text-muted-foreground">Open the exact workflow you need, from quick explanations to complete project generation and progress tracking.</p>
                 </div>
                 <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                     {featureCards.map(card => (
-                        <FeatureCard key={card.title} icon={card.icon} title={card.title} description={card.description} href={card.href} />
+                        <FeatureCard key={card.title} icon={card.icon} title={card.title} description={card.description} href={card.href} tone={card.tone} actionLabel={card.actionLabel} />
                     ))}
                 </div>
             </section>
 
             <section>
                 <div className="mx-auto max-w-3xl text-center">
+                    <Badge>AI agents</Badge>
+                    <h2 className="mt-4 text-3xl font-semibold text-foreground sm:text-4xl">AI Agents Working for You</h2>
+                    <p className="mt-4 text-base leading-8 text-muted-foreground">Specialized agents keep each workflow focused, practical, and connected to a real student outcome.</p>
+                </div>
+                <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                    {agents.map(agent => {
+                        const Icon = agent.icon
+                        return (
+                            <Card key={agent.title} className="border-white/10 bg-card/80 p-6 backdrop-blur-xl hover:border-violet-400/30 hover:bg-secondary">
+                                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-violet-500/20 to-cyan-400/15 text-cyan-300 shadow-xl shadow-cyan-400/10">
+                                    <Icon size={21} />
+                                </span>
+                                <h3 className="mt-5 text-xl font-semibold text-foreground">{agent.title}</h3>
+                                <p className="mt-3 text-base leading-7 text-muted-foreground">{agent.body}</p>
+                            </Card>
+                        )
+                    })}
+                </div>
+            </section>
+
+            <section>
+                <div className="mx-auto max-w-3xl text-center">
                     <Badge>How it works</Badge>
-                    <h2 className="mt-4 text-3xl font-semibold text-foreground sm:text-4xl">From goal to career momentum</h2>
+                    <h2 className="mt-4 text-3xl font-semibold text-foreground sm:text-4xl">From goal to guided action</h2>
                 </div>
                 <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-4">
                     {steps.map((step, index) => {
@@ -249,43 +276,17 @@ export function HomePage({ onPrompt }: { onPrompt: (prompt: string) => void }) {
                 </div>
             </section>
 
-            <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-                <Card className="p-6 sm:p-8">
-                    <div>
-                        <Badge className="border-violet-400/25 bg-violet-500/10 text-violet-300">Why Student AI</Badge>
-                        <h2 className="mt-4 text-3xl font-semibold text-foreground">Built for students who need outcomes, not widgets</h2>
-                    </div>
-                    <div className="mt-6 space-y-3">
-                        {advantages.map(item => (
-                            <div key={item} className="flex gap-3 rounded-2xl border border-border bg-secondary p-4 text-base leading-7 text-muted-foreground">
-                                <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-emerald-400" />
-                                <span>{item}</span>
-                            </div>
-                        ))}
-                    </div>
-                </Card>
-
-                <Card className="p-6 sm:p-8">
-                    <div className="flex items-center justify-between gap-3">
-                        <div>
-                            <Badge>Recent conversations</Badge>
-                            <h2 className="mt-4 text-3xl font-semibold text-foreground">Continue where you left off</h2>
-                        </div>
-                        <Link href="/chat" className="hidden items-center gap-2 rounded-2xl border border-border px-4 py-2 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground sm:flex">Open chat <ArrowRight size={15} /></Link>
-                    </div>
-                    <div className="mt-6 space-y-3">
-                        {recentConversations.length ? recentConversations.map(message => (
-                            <button key={message.id} onClick={() => submit(message.content)} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-secondary p-4 text-left transition hover:border-cyan-400/40 hover:bg-background">
-                                <MessageSquare className="h-5 w-5 shrink-0 text-cyan-400" />
-                                <span className="line-clamp-2 text-base text-foreground">{message.content}</span>
-                            </button>
-                        )) : (
-                            <div className="rounded-2xl border border-dashed border-border bg-secondary p-6 text-base leading-7 text-muted-foreground">
-                                No conversations yet. Ask AI from the prompt box above and your recent requests will appear here.
-                            </div>
-                        )}
-                    </div>
-                </Card>
+            <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                {valueCards.map(card => {
+                    const Icon = card.icon
+                    return (
+                        <Card key={card.title} className="p-6">
+                            <Icon className="h-7 w-7 text-cyan-400" />
+                            <h3 className="mt-5 text-lg font-semibold text-foreground">{card.title}</h3>
+                            <p className="mt-3 text-sm leading-6 text-muted-foreground">{card.body}</p>
+                        </Card>
+                    )
+                })}
             </section>
         </div>
     )

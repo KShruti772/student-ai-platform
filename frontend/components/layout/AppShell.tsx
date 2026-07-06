@@ -7,23 +7,23 @@ import {
     BarChart3,
     Bell,
     BookOpen,
-    Database,
     FileText,
     Bot,
     ChevronLeft,
     ChevronRight,
-    GitBranch,
-    GraduationCap,
     Home,
-    Layers,
     Menu,
-    MessageSquare,
+    MessageCircle,
     Moon,
     Search,
     Settings,
     Sparkles,
     Sun,
+    Target,
     UserCircle,
+    Rocket,
+    Route as RouteIcon,
+    Workflow,
     X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -37,21 +37,33 @@ import * as api from '../../lib/api'
 
 type NavItem = { label: string; href: Route; icon: LucideIcon }
 
-const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [{
-    label: 'Workspace',
-    items: [
-        { label: 'Home', href: '/', icon: Home },
-        { label: 'AI Chat', href: '/chat', icon: MessageSquare },
-        { label: 'Career Roadmap', href: '/career-roadmap' as Route, icon: GraduationCap },
-        { label: 'Project Builder', href: '/projects' as Route, icon: GitBranch },
-        { label: 'Resume Builder', href: '/resume' as Route, icon: FileText },
-        { label: 'Knowledge Base', href: '/knowledge' as Route, icon: BookOpen },
-        { label: 'Mentor', href: '/mentor' as Route, icon: Bot },
-        { label: 'Progress Tracker', href: '/progress' as Route, icon: BarChart3 },
-        { label: 'Workflow Studio', href: '/workflows' as Route, icon: Layers },
-        { label: 'Settings', href: '/settings', icon: Settings },
-    ],
-}]
+const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
+    {
+        label: 'Main',
+        items: [
+            { label: 'Home', href: '/', icon: Home },
+            { label: 'AI Chat', href: '/chat', icon: MessageCircle },
+            { label: 'Career Roadmap', href: '/career-roadmap' as Route, icon: RouteIcon },
+        ],
+    },
+    {
+        label: 'Build',
+        items: [
+            { label: 'Project Builder', href: '/projects' as Route, icon: Rocket },
+            { label: 'Resume Builder', href: '/resume' as Route, icon: FileText },
+            { label: 'Knowledge Base', href: '/knowledge' as Route, icon: BookOpen },
+        ],
+    },
+    {
+        label: 'Grow',
+        items: [
+            { label: 'Mentor', href: '/mentor' as Route, icon: Bot },
+            { label: 'Progress Tracker', href: '/progress' as Route, icon: Target },
+            { label: 'Workflow Studio', href: '/workflows' as Route, icon: Workflow },
+            { label: 'Settings', href: '/settings', icon: Settings },
+        ],
+    },
+]
 
 const PAGE_TITLES: Record<string, string> = {
     '/': 'Home',
@@ -62,12 +74,12 @@ const PAGE_TITLES: Record<string, string> = {
     '/workflows': 'Workflow Studio',
     '/agents': 'Agents',
     '/sessions': 'Sessions',
-    '/knowledge': 'Knowledge',
-    '/knowledge-base': 'Knowledge',
+    '/knowledge': 'Knowledge Base',
+    '/knowledge-base': 'Knowledge Base',
     '/mentor': 'Mentor',
     '/skills': 'Skills Engine',
     '/analytics': 'Progress Tracker',
-    '/progress': 'Progress',
+    '/progress': 'Progress Tracker',
     '/model-monitor': 'Model Monitor',
     '/timeline': 'Timeline',
     '/settings': 'Settings',
@@ -78,7 +90,6 @@ const PAGE_TITLES: Record<string, string> = {
 type ShellStatus = {
     modelLabel: string
     modelConnected: boolean
-    storageLabel: string
 }
 
 function SidebarContent({
@@ -157,19 +168,6 @@ function SidebarContent({
             <div className={clsx('border-t border-border pt-4', collapsed ? 'space-y-2' : 'space-y-3')}>
                 <div className={clsx('rounded-2xl border border-border bg-card', collapsed ? 'grid h-11 place-items-center' : 'p-3')}>
                     {collapsed ? (
-                        <Database size={17} className="text-muted-foreground" />
-                    ) : (
-                        <div className="flex items-center gap-3">
-                            <Database size={17} className="text-cyan-400" />
-                            <div className="min-w-0">
-                                <div className="text-xs text-muted-foreground">Storage</div>
-                                <div className="truncate text-sm font-medium text-foreground">{shellStatus.storageLabel}</div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-                <div className={clsx('rounded-2xl border border-border bg-card', collapsed ? 'grid h-11 place-items-center' : 'p-3')}>
-                    {collapsed ? (
                         <span className={clsx('h-2.5 w-2.5 rounded-full', shellStatus.modelConnected ? 'bg-emerald-400' : 'bg-amber-400')} />
                     ) : (
                         <div className="flex items-center gap-3">
@@ -208,7 +206,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const [notificationsOpen, setNotificationsOpen] = useState(false)
     const [mounted, setMounted] = useState(false)
     const [modelStatus, setModelStatus] = useState<api.ModelStatus | null>(null)
-    const [storageLabel, setStorageLabel] = useState('Local browser')
     const { setTheme, resolvedTheme } = useTheme()
 
     useEffect(() => {
@@ -222,14 +219,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         api.getModelStatus()
             .then(status => { if (mountedEffect) setModelStatus(status) })
             .catch(() => { if (mountedEffect) setModelStatus({ connected: false, model: 'Model unavailable', error: 'Backend unavailable' }) })
-        if (navigator.storage?.estimate) {
-            navigator.storage.estimate().then(estimate => {
-                if (!mountedEffect) return
-                const usedMb = Math.round((estimate.usage || 0) / 1024 / 1024)
-                const quotaMb = Math.round((estimate.quota || 0) / 1024 / 1024)
-                setStorageLabel(quotaMb ? `${usedMb} MB / ${quotaMb} MB` : `${usedMb} MB used`)
-            }).catch(() => setStorageLabel('Local browser'))
-        }
         return () => { mountedEffect = false }
     }, [])
 
@@ -252,8 +241,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const shellStatus = useMemo<ShellStatus>(() => ({
         modelLabel: modelStatus?.model || 'Checking model',
         modelConnected: Boolean(modelStatus?.connected && modelStatus?.model_loaded),
-        storageLabel,
-    }), [modelStatus, storageLabel])
+    }), [modelStatus])
 
     return (
         <ErrorBoundary>
@@ -301,10 +289,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                                             <span className="font-medium text-foreground">{shellStatus.modelConnected ? 'AI model connected' : 'AI model needs attention'}</span>
                                         </div>
                                         <p className="mt-2 leading-6 text-muted-foreground">{shellStatus.modelConnected ? `${shellStatus.modelLabel} is available for AI workflows.` : 'Start the backend and LM Studio to enable real AI responses.'}</p>
-                                    </div>
-                                    <div className="mt-3 rounded-2xl border border-border bg-secondary p-3">
-                                        <div className="font-medium text-foreground">Workspace storage</div>
-                                        <p className="mt-2 leading-6 text-muted-foreground">{shellStatus.storageLabel}</p>
                                     </div>
                                 </div>
                             )}
