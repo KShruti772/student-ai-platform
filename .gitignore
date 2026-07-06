@@ -1,0 +1,41 @@
+# Node
+node_modules/
+.next/
+out/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+
+# Python cache
+.pytest_cache/
+
+# SQLite
+*.db
+
+# Uploads
+uploads/
+
+# LM Studio cache
+models/

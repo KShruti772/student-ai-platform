@@ -1,0 +1,23 @@
+{
+  "session_id": "integration-audit",
+  "messages": [],
+  "events": [
+    {
+      "type": "error",
+      "session_id": "integration-audit",
+      "error": "400 response from model API at http://localhost:1234/v1/chat/completions: {\n    \"error\": {\n        \"message\": \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\",\n        \"type\": \"invalid_request_error\",\n        \"param\": \"model\",\n        \"code\": null\n    }\n}",
+      "ts": 1783076205291
+    },
+    {
+      "type": "error",
+      "session_id": "integration-audit",
+      "error": "400 response from model API at http://localhost:1234/v1/chat/completions: {\n    \"error\": {\n        \"message\": \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\",\n        \"type\": \"invalid_request_error\",\n        \"param\": \"model\",\n        \"code\": null\n    }\n}",
+      "ts": 1783076278446
+    }
+  ],
+  "workflow_history": [],
+  "token_usage": {},
+  "metrics": {},
+  "agent_logs": [],
+  "created_ts": 1783076205291
+}

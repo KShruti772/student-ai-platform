@@ -1,0 +1,112 @@
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "stage:planner agent:PlannerAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'plan': \"{'error': 'timeout'}\"}"
+    },
+    {
+      "role": "system",
+      "content": "stage:architect agent:ArchitectAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': \"{'error': 'timeout'}\"}"
+    },
+    {
+      "role": "system",
+      "content": "stage:research agent:ResearchAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': 'It seems like your request timed out. Could you please try again with a more specific question or provide additional details so I can assist you better?'}"
+    },
+    {
+      "role": "system",
+      "content": "stage:coding agent:CodingAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': '```json\\n{\\n  \"files\": {},\\n  \"explanation\": \"The request timed out, likely due to the complexity of the input. Please provide a more detailed plan or architecture for the project you need assistance with.\",\\n  \"tests\": {}\\n}\\n```'}"
+    },
+    {
+      "role": "system",
+      "content": "stage:reviewer agent:ReviewerAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': \"{'error': 'timeout'}\"}"
+    },
+    {
+      "role": "system",
+      "content": "stage:explainer agent:ExplainerAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'error': 'timeout'}"
+    },
+    {
+      "role": "system",
+      "content": "stage:execution agent:ExecutionAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': 'Please provide the code snippet you would like to simulate running.', 'notes': 'This is a simulated run. Replace with sandboxed execution for real runs.'}"
+    },
+    {
+      "role": "user",
+      "content": "Please produce an educational summary for the student based on the plan and explanations.\nPlan:\n{'error': 'timeout'}\nExplainer:\n{'error': 'timeout'}"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"raw\": \"{'error': 'timeout'}\"}"
+    },
+    {
+      "role": "system",
+      "content": "stage:mentor agent:MentorAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': \"{'error': 'timeout'}\"}"
+    }
+  ],
+  "plans": [
+    {
+      "goal": "techStack: \ndomain: \ntargetRole: \nskills: \ninterests: \ncompanies: \nlevel: Intermediate",
+      "plan": "{'error': 'timeout'}"
+    },
+    {
+      "goal": "techStack: \ndomain: \ntargetRole: \nskills: \ninterests: \ncompanies: \nlevel: Intermediate",
+      "plan": "{'error': 'timeout'}",
+      "architecture": {
+        "raw": "{'error': 'timeout'}"
+      }
+    }
+  ],
+  "code_files": {},
+  "explanations": [
+    {
+      "research": {
+        "raw": "It seems like your request timed out. Could you please try again with a more specific question or provide additional details so I can assist you better?"
+      }
+    },
+    {
+      "explainer": "{'error': 'timeout'}"
+    },
+    {
+      "execution": {
+        "raw": "Please provide the code snippet you would like to simulate running.",
+        "notes": "This is a simulated run. Replace with sandboxed execution for real runs."
+      }
+    },
+    {
+      "mentor": {
+        "raw": "{'error': 'timeout'}"
+      }
+    }
+  ],
+  "debug_context": []
+}

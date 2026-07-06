@@ -1,0 +1,5 @@
+# Ingest script template
+
+from rag import ingest
+
+ingest('/path/to/docs')

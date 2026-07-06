@@ -1,0 +1,61 @@
+{
+  "session_id": "verify",
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "",
+      "tokens": 1,
+      "latency_ms": 2124,
+      "model": "local_model",
+      "ts": 1783021272698
+    }
+  ],
+  "events": [
+    {
+      "type": "token_stream",
+      "stream_id": "8097362a-967f-4bfa-9ca4-2a3260ba10c4",
+      "session_id": "verify",
+      "token": "",
+      "meta": {
+        "type": "error",
+        "error": "400 Client Error: Bad Request for url: http://localhost:1234/v1/chat/completions"
+      },
+      "ts": 1783021272672
+    },
+    {
+      "type": "token_stream",
+      "stream_id": "8097362a-967f-4bfa-9ca4-2a3260ba10c4",
+      "session_id": "verify",
+      "token": "",
+      "meta": {
+        "type": "error",
+        "error": "400 Client Error: Bad Request for url: http://localhost:1234/v1/chat/completions"
+      },
+      "ts": 1783021272672,
+      "event_type": "token_stream"
+    },
+    {
+      "type": "agent_finished",
+      "session_id": "verify",
+      "stream_id": "8097362a-967f-4bfa-9ca4-2a3260ba10c4",
+      "payload": {
+        "content": "",
+        "tokens": 1,
+        "latency_ms": 2124,
+        "model": "local_model",
+        "session_id": "verify",
+        "stream_id": "8097362a-967f-4bfa-9ca4-2a3260ba10c4"
+      },
+      "ts": 1783021272699
+    }
+  ],
+  "workflow_history": [],
+  "token_usage": {
+    "local_model": 2
+  },
+  "metrics": {
+    "last_response_latency_ms": 2124
+  },
+  "agent_logs": [],
+  "created_ts": 1783021272673
+}

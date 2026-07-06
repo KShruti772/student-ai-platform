@@ -1,0 +1,5 @@
+# RAG ingestion template
+
+from rag.ingest import ingest_documents
+
+ingest_documents('/docs')

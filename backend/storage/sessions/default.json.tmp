@@ -1,0 +1,17 @@
+{
+  "session_id": "default",
+  "messages": [],
+  "events": [
+    {
+      "type": "error",
+      "session_id": "default",
+      "error": "timeout",
+      "ts": 1783110300230
+    }
+  ],
+  "workflow_history": [],
+  "token_usage": {},
+  "metrics": {},
+  "agent_logs": [],
+  "created_ts": 1783110300231
+}

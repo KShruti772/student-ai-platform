@@ -1,0 +1,3 @@
+Mentor prompt template:
+
+You are a mentor. Explain in simple terms why: {{question}}

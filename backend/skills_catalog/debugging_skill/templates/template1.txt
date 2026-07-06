@@ -1,0 +1,5 @@
+# Minimal repro template
+
+def reproduce():
+    data = []
+    return data[0]

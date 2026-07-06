@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Skill Activation Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px
+        }
+
+        .skill {
+            border: 1px solid #ddd;
+            padding: 8px;
+            margin: 6px
+        }
+
+        button {
+            margin-top: 6px
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Skill Activation Panel</h2>
+    <p>Type a goal or question, press Detect to find relevant skills.</p>
+    <textarea id="intent" rows="3" cols="60"></textarea><br>
+    <button id="detect">Detect Skills</button>
+    <div id="results"></div>
+
+    <script>
+        async function detect() {
+            const text = document.getElementById('intent').value;
+            if (!text) return alert('Enter intent');
+            const resp = await fetch('/skills/detect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+            const data = await resp.json();
+            const cont = document.getElementById('results');
+            cont.innerHTML = '';
+            if (data.detected && data.detected.length) {
+                data.detected.forEach(s => {
+                    const el = document.createElement('div'); el.className = 'skill';
+                    el.innerHTML = '<b>' + s.name + '</b> (score: ' + (s.score || 0).toFixed(3) + ')<div>' + (s.mentor_explanation || '') + '</div>';
+                    const btn = document.createElement('button'); btn.textContent = 'Activate';
+                    btn.onclick = async () => {
+                        const r = await fetch('/skills/activate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: s.name }) });
+                        const jr = await r.json();
+                        alert('Activate: ' + JSON.stringify(jr));
+                    };
+                    el.appendChild(btn);
+                    cont.appendChild(el);
+                });
+            } else {
+                cont.innerText = 'No skills detected.';
+            }
+        }
+        document.getElementById('detect').onclick = detect;
+    </script>
+</body>
+
+</html>

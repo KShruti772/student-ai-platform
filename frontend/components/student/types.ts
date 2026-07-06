@@ -1,0 +1,10 @@
+export type StudentView =
+    | 'home'
+    | 'chat'
+    | 'roadmap'
+    | 'projects'
+    | 'resume'
+    | 'mentor'
+    | 'knowledge'
+    | 'workflows'
+    | 'settings'
