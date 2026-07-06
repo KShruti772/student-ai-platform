@@ -5,8 +5,10 @@ import { Bell, Search, Moon, Sun, Zap } from 'lucide-react'
 import StatusPill from './StatusPill'
 import { usePathname } from 'next/navigation'
 import { useStore } from '../../lib/store'
+import useMounted from '../../hooks/useMounted'
 
 export default function TopbarBar({ onOpenCommand, theme, toggleTheme }: { onOpenCommand: () => void; theme: 'dark' | 'light'; toggleTheme: () => void }) {
+    const mounted = useMounted()
     const connection = useStore((state) => state.connection)
     const pathname = usePathname()
     const title = useMemo(() => {
@@ -43,7 +45,7 @@ export default function TopbarBar({ onOpenCommand, theme, toggleTheme }: { onOpe
                         <Bell size={16} /> Notifications
                     </button>
                     <button onClick={toggleTheme} className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-black/30 text-zinc-300 transition hover:bg-white/10">
-                        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                        {mounted ? theme === 'dark' ? <Sun size={16} /> : <Moon size={16} /> : <span aria-hidden="true" className="inline-block h-4 w-4" />}
                     </button>
                 </div>
             </div>

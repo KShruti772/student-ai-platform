@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { AnimatePresence, motion } from 'framer-motion'
-import { BarChart3, BookOpen, Bot, Briefcase, Bug, CheckCircle2, Clock, Copy, Download, FileText, GitBranch, GraduationCap, Layers, Loader2, MessageCircle, PlusCircle, RefreshCw, Rocket, Route as RouteIcon, Search, Send, ShieldCheck, Sparkles, Target, Upload, User, X } from 'lucide-react'
+import { BarChart3, BookOpen, Bot, Briefcase, Bug, CheckCircle2, Clock, Copy, Download, FileText, GitBranch, GraduationCap, Layers, Loader2, MessageCircle, PlusCircle, RefreshCw, Rocket, Search, Send, ShieldCheck, Sparkles, Target, Upload, User, X } from 'lucide-react'
 import ChatWindow from '../chat/ChatWindow'
 import WorkflowPanel from '../workflow/WorkflowPanel'
 import RealtimeModelMonitor from '../monitor/RealtimeModelMonitor'
@@ -133,7 +133,7 @@ export function HomePage({ onPrompt }: { onPrompt: (prompt: string) => void }) {
     const featureCards: Array<{ icon: typeof MessageCircle; title: string; description: string; href: Route; tone: 'violet' | 'cyan' | 'emerald' | 'amber' | 'blue' | 'pink'; actionLabel: string }> = [
         { icon: MessageCircle, title: 'AI Chat', description: 'Ask questions, solve problems, and get detailed explanations across your learning journey.', href: '/chat' as Route, tone: 'violet', actionLabel: 'Start chatting' },
         { icon: Rocket, title: 'Project Builder', description: 'Generate complete applications with architecture, code, debugging, and exportable source files.', href: '/projects' as Route, tone: 'cyan', actionLabel: 'Build a project' },
-        { icon: RouteIcon, title: 'Career Roadmap', description: 'Turn a career goal into a personalized plan with milestones, skills, and portfolio proof.', href: '/career-roadmap' as Route, tone: 'emerald', actionLabel: 'Create roadmap' },
+        { icon: GraduationCap, title: 'Career Roadmap', description: 'Turn a career goal into a personalized plan with milestones, skills, and portfolio proof.', href: '/career-roadmap' as Route, tone: 'emerald', actionLabel: 'Create roadmap' },
         { icon: FileText, title: 'Resume Builder', description: 'Improve resume bullets, match role keywords, and create stronger ATS-friendly career material.', href: '/resume' as Route, tone: 'amber', actionLabel: 'Improve resume' },
         { icon: BookOpen, title: 'Knowledge Base', description: 'Upload PDFs, notes, and documents, then search and learn from your own materials.', href: '/knowledge' as Route, tone: 'blue', actionLabel: 'Open knowledge' },
         { icon: Target, title: 'Progress Tracker', description: 'Plan daily tasks, track weekly progress, and keep momentum across skills and projects.', href: '/progress' as Route, tone: 'pink', actionLabel: 'Track progress' },
@@ -153,7 +153,7 @@ export function HomePage({ onPrompt }: { onPrompt: (prompt: string) => void }) {
         'Generate project ideas',
     ]
     const agents = [
-        { icon: RouteIcon, title: 'Career Agent', body: 'Maps goals into learning phases, skills, milestones, and portfolio direction.' },
+        { icon: GraduationCap, title: 'Career Agent', body: 'Maps goals into learning phases, skills, milestones, and portfolio direction.' },
         { icon: Rocket, title: 'Project Agent', body: 'Turns requirements into app ideas, architecture, files, run steps, and iteration plans.' },
         { icon: FileText, title: 'Resume Agent', body: 'Improves bullets, keywords, structure, and role alignment for stronger applications.' },
         { icon: BookOpen, title: 'Knowledge Agent', body: 'Helps you search, summarize, and learn from uploaded notes and documents.' },
@@ -211,7 +211,7 @@ export function HomePage({ onPrompt }: { onPrompt: (prompt: string) => void }) {
                             <Rocket size={18} /> Project Builder
                         </Link>
                         <Link href="/career-roadmap" className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-2xl border border-border bg-background/70 px-6 py-3 text-base font-semibold text-foreground shadow-xl shadow-black/5 transition hover:-translate-y-0.5 hover:bg-secondary">
-                            <RouteIcon size={18} /> Career Roadmap
+                            <GraduationCap size={18} /> Career Roadmap
                         </Link>
                     </div>
                 </div>
@@ -965,7 +965,7 @@ export function AnalyticsPage() {
         <div className="mx-auto max-w-7xl space-y-5">
             <Panel>
                 <div className="flex items-center gap-2 text-base text-cyan-200"><BarChart3 size={19} /> Progress Tracker</div>
-                <h2 className="mt-3 text-3xl font-semibold text-foreground md:text-4xl">Today's Learning Plan</h2>
+                <h2 className="mt-3 text-3xl font-semibold text-foreground md:text-4xl">Today&apos;s Learning Plan</h2>
                 <p className="mt-3 max-w-3xl text-base leading-8 text-muted-foreground">{message}</p>
             </Panel>
 
@@ -973,7 +973,7 @@ export function AnalyticsPage() {
                 <Panel>
                     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <div className="text-xl font-semibold text-foreground">Today's tasks</div>
+                            <div className="text-xl font-semibold text-foreground">Today&apos;s tasks</div>
                             <div className="mt-1 text-sm text-muted-foreground">{doneMinutes}/{totalMinutes} minutes completed</div>
                         </div>
                         <div className="rounded-full bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100">{completedTasks}/{tasks.length} complete</div>

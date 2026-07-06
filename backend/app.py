@@ -123,4 +123,4 @@ async def test(req: TestRequest):
 
 if __name__ == "__main__":
     # For local development: `python backend/app.py`
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=8002, reload=True)

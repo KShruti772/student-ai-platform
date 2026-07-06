@@ -1,8 +1,13 @@
 import time
 from typing import Any, Dict
+from pydantic import ConfigDict
+from ..schemas.session import TimelineResponse
 from utils.logger import get_logger
 
 _LOG = get_logger(__name__)
+
+TimelineResponse.model_config = ConfigDict(extra="allow")
+TimelineResponse.model_rebuild(force=True)
 
 
 def normalize_event(ev: Dict[str, Any], idx: int) -> Dict[str, Any]:
@@ -34,11 +39,11 @@ def get_timeline_from_persistent(pm, session_id: str) -> Dict[str, Any]:
         }
     except Exception as e:
         _LOG.exception("Failed to read session %s from persistent memory: %s", session_id, e)
-        return {"session_id": session_id, "events": []}
+        return {"session_id": session_id, "events": [], "messages": []}
 
 
-def generate_mock_timeline(session_id: str) -> Dict[str, Any]:
-    # Lightweight mock timeline when no persistent data exists
+def _legacy_generate_mock_timeline(session_id: str) -> Dict[str, Any]:
+    # Legacy definition retained only to avoid disturbing encoded historical text.
     now = int(time.time() * 1000)
     return {
         "session_id": session_id,
@@ -77,7 +82,7 @@ def generate_mock_timeline(session_id: str) -> Dict[str, Any]:
     ],
 }
 
-def get_session_timeline(app, session_id: str) -> Dict[str, Any]:
+def _legacy_get_session_timeline(app, session_id: str) -> Dict[str, Any]:
     pm = getattr(app.state, "persistent_memory", None)
 
     if pm is None:
@@ -100,3 +105,67 @@ def get_session_timeline(app, session_id: str) -> Dict[str, Any]:
         return result
 
     return res
+
+
+def generate_mock_timeline(session_id: str) -> Dict[str, Any]:
+    now = int(time.time() * 1000)
+    return {
+        "session_id": session_id,
+        "events": [
+            {
+                "id": "1",
+                "type": "message",
+                "title": "Session created",
+                "timestamp": now - 3000,
+                "status": "completed",
+            },
+            {
+                "id": "2",
+                "type": "workflow",
+                "title": "Workflow started",
+                "timestamp": now - 2000,
+                "status": "running",
+            },
+            {
+                "id": "3",
+                "type": "workflow",
+                "title": "First task completed",
+                "timestamp": now - 1000,
+                "status": "completed",
+            },
+        ],
+        "messages": [
+            {
+                "id": "m1",
+                "role": "assistant",
+                "content": "Welcome to Student AI Platform.",
+                "timestamp": now - 3000,
+            }
+        ],
+    }
+
+
+def ensure_timeline_shape(result: Dict[str, Any], session_id: str) -> Dict[str, Any]:
+    result.setdefault("session_id", session_id)
+    result.setdefault("events", [])
+    result.setdefault("messages", [])
+    return result
+
+
+def get_session_timeline(app, session_id: str) -> Dict[str, Any]:
+    pm = getattr(app.state, "persistent_memory", None)
+
+    if pm is None:
+        _LOG.info(
+            "Persistent memory not available; returning mock timeline for %s",
+            session_id,
+        )
+        return ensure_timeline_shape(generate_mock_timeline(session_id), session_id)
+
+    result = get_timeline_from_persistent(pm, session_id)
+    ensure_timeline_shape(result, session_id)
+
+    if not result.get("events"):
+        return ensure_timeline_shape(generate_mock_timeline(session_id), session_id)
+
+    return ensure_timeline_shape(result, session_id)

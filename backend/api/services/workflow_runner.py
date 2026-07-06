@@ -199,7 +199,7 @@ README.md
 
 ### How To Run
 - Install dependencies.
-- Start the backend on port 8000.
+- Start the backend on port 8002.
 - Start the frontend on port 3000.
 - Open the app and run the project workflow with a real use case.
 

@@ -9,6 +9,7 @@ import {
     BookOpen,
     FileText,
     Bot,
+    GraduationCap,
     ChevronLeft,
     ChevronRight,
     Home,
@@ -22,7 +23,6 @@ import {
     Target,
     UserCircle,
     Rocket,
-    Route as RouteIcon,
     Workflow,
     X,
 } from 'lucide-react'
@@ -34,6 +34,7 @@ import CommandPalette from '../ui/CommandPalette'
 import ErrorBoundary from '../ErrorBoundary'
 import SidebarItem from '../ui/SidebarItem'
 import * as api from '../../lib/api'
+import useMounted from '../../hooks/useMounted'
 
 type NavItem = { label: string; href: Route; icon: LucideIcon }
 
@@ -43,7 +44,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
         items: [
             { label: 'Home', href: '/', icon: Home },
             { label: 'AI Chat', href: '/chat', icon: MessageCircle },
-            { label: 'Career Roadmap', href: '/career-roadmap' as Route, icon: RouteIcon },
+            { label: 'Career Roadmap', href: '/career-roadmap' as Route, icon: GraduationCap },
         ],
     },
     {
@@ -100,6 +101,7 @@ function SidebarContent({
     shellStatus,
     onToggleTheme,
     resolvedTheme,
+    mounted,
 }: {
     collapsed: boolean
     onNavigate?: () => void
@@ -108,11 +110,12 @@ function SidebarContent({
     shellStatus: ShellStatus
     onToggleTheme: () => void
     resolvedTheme?: string
+    mounted: boolean
 }) {
     const pathname = usePathname()
 
     return (
-        <motion.div layout transition={{ type: 'spring', stiffness: 240, damping: 28 }} className="flex h-full flex-col rounded-2xl border border-border bg-sidebar p-4 shadow-xl shadow-black/5 backdrop-blur-xl transition-colors duration-150">
+        <motion.div layout initial={false} transition={{ type: 'spring', stiffness: 240, damping: 28 }} className="flex h-full flex-col rounded-2xl border border-border bg-sidebar p-4 shadow-xl shadow-black/5 backdrop-blur-xl transition-colors duration-150">
             <div className={clsx('flex items-center', collapsed ? 'justify-center px-0 py-2' : 'gap-3 px-1 py-2')}>
                 <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-400 text-white shadow-xl shadow-black/10">
                     <Sparkles size={18} />
@@ -180,7 +183,7 @@ function SidebarContent({
                     )}
                 </div>
                 <button aria-label="Toggle theme" onClick={onToggleTheme} className={clsx('flex h-11 items-center rounded-2xl border border-border bg-card text-muted-foreground transition hover:bg-secondary hover:text-foreground', collapsed ? 'w-full justify-center' : 'w-full gap-3 px-3')}>
-                    {resolvedTheme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+                    <ThemeToggleIcon mounted={mounted} resolvedTheme={resolvedTheme} size={17} />
                     {!collapsed && <span className="text-sm font-medium">Theme</span>}
                 </button>
                 {!collapsed && (
@@ -197,6 +200,14 @@ function SidebarContent({
     )
 }
 
+function ThemeToggleIcon({ mounted, resolvedTheme, size }: { mounted: boolean; resolvedTheme?: string; size: number }) {
+    if (!mounted) {
+        return <span aria-hidden="true" className="inline-block shrink-0" style={{ width: size, height: size }} />
+    }
+
+    return resolvedTheme === 'dark' ? <Sun size={size} /> : <Moon size={size} />
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
@@ -204,14 +215,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const [mobileOpen, setMobileOpen] = useState(false)
     const [commandOpen, setCommandOpen] = useState(false)
     const [notificationsOpen, setNotificationsOpen] = useState(false)
-    const [mounted, setMounted] = useState(false)
+    const mounted = useMounted()
     const [modelStatus, setModelStatus] = useState<api.ModelStatus | null>(null)
     const { setTheme, resolvedTheme } = useTheme()
 
     useEffect(() => {
         const savedCollapsed = localStorage.getItem('student-ai:sidebar')
         setCollapsed(savedCollapsed === 'collapsed')
-        setMounted(true)
     }, [])
 
     useEffect(() => {
@@ -223,6 +233,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }, [])
 
     const toggleTheme = () => {
+        if (!mounted) return
         setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
     }
     const toggleSidebar = () => {
@@ -249,7 +260,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <CommandPalette commands={commands} open={commandOpen} onOpenChange={setCommandOpen} />
 
                 <motion.aside layout initial={false} animate={{ width: collapsed ? 88 : 280 }} transition={{ type: 'spring', stiffness: 260, damping: 30 }} className={clsx('fixed inset-y-0 left-0 z-40 hidden p-4 transition-[width] duration-200 lg:block', collapsed ? 'w-[88px]' : 'w-[280px]')}>
-                    <SidebarContent collapsed={collapsed} onToggle={toggleSidebar} onSearch={() => setCommandOpen(true)} shellStatus={shellStatus} onToggleTheme={toggleTheme} resolvedTheme={resolvedTheme} />
+                    <SidebarContent collapsed={collapsed} onToggle={toggleSidebar} onSearch={() => setCommandOpen(true)} shellStatus={shellStatus} onToggleTheme={toggleTheme} resolvedTheme={resolvedTheme} mounted={mounted} />
                 </motion.aside>
 
                 {mobileOpen && (
@@ -257,7 +268,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         <button aria-label="Close navigation" onClick={() => setMobileOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
                         <aside className="relative h-full w-[280px] bg-sidebar p-3 shadow-2xl">
                             <button aria-label="Close navigation" onClick={() => setMobileOpen(false)} className="absolute right-5 top-5 z-10 grid h-9 w-9 place-items-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"><X size={18} /></button>
-                            <SidebarContent collapsed={false} onToggle={() => setMobileOpen(false)} onNavigate={() => setMobileOpen(false)} onSearch={() => setCommandOpen(true)} shellStatus={shellStatus} onToggleTheme={toggleTheme} resolvedTheme={resolvedTheme} />
+                            <SidebarContent collapsed={false} onToggle={() => setMobileOpen(false)} onNavigate={() => setMobileOpen(false)} onSearch={() => setCommandOpen(true)} shellStatus={shellStatus} onToggleTheme={toggleTheme} resolvedTheme={resolvedTheme} mounted={mounted} />
                         </aside>
                     </div>
                 )}
@@ -294,7 +305,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             )}
                         </div>
                         <button aria-label="Toggle theme" onClick={toggleTheme} className="grid h-11 w-11 place-items-center rounded-2xl border border-border bg-card text-muted-foreground transition hover:bg-secondary hover:text-foreground">
-                            {mounted && resolvedTheme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                            <ThemeToggleIcon mounted={mounted} resolvedTheme={resolvedTheme} size={16} />
                         </button>
                         <button aria-label="Profile" className="grid h-11 w-11 place-items-center rounded-2xl border border-border bg-card text-muted-foreground transition hover:bg-secondary hover:text-foreground">
                             <UserCircle size={17} />
@@ -302,8 +313,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     </header>
 
                     <div className="flex">
-                        <AnimatePresence mode="wait">
-                            <motion.main key={pathname} id="main-content" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="min-w-0 flex-1">
+                        <AnimatePresence mode="wait" initial={false}>
+                            <motion.main key={pathname} id="main-content" initial={false} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="min-w-0 flex-1">
                                 {children}
                             </motion.main>
                         </AnimatePresence>

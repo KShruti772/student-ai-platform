@@ -9,7 +9,7 @@ except Exception as e:
 
 pids = set()
 for line in out.splitlines():
-    if ':8000' in line:
+    if ':8002' in line:
         parts = line.strip().split()
         if parts:
             pid = parts[-1]
@@ -17,7 +17,7 @@ for line in out.splitlines():
                 pids.add(pid)
 
 if not pids:
-    print('No processes listening on :8000')
+    print('No processes listening on :8002')
     sys.exit(0)
 
 for pid in pids:

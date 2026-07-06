@@ -375,13 +375,13 @@ pip install -r requirements.txt
 ### 5. Run the backend
 
 ```bash
-python -m uvicorn app:app --host 127.0.0.1 --port 8000 --reload
+python -m uvicorn app:app --host 127.0.0.1 --port 8002 --reload
 ```
 
 Backend docs are available at:
 
 ```text
-http://127.0.0.1:8000/docs
+http://127.0.0.1:8002/docs
 ```
 
 ### 6. Configure the frontend
@@ -389,10 +389,10 @@ http://127.0.0.1:8000/docs
 Create `frontend/.env.local`:
 
 ```env
-NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
-NEXT_PUBLIC_WS_URL=ws://127.0.0.1:8000
-NEXT_PUBLIC_API_WS_URL=ws://127.0.0.1:8000
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8002
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8002
+NEXT_PUBLIC_WS_URL=ws://127.0.0.1:8002
+NEXT_PUBLIC_API_WS_URL=ws://127.0.0.1:8002
 ```
 
 The same values are documented in `frontend/.env.example`.
@@ -435,7 +435,7 @@ npm run test:e2e  # Run Playwright tests
 
 ```bash
 cd backend
-python -m uvicorn app:app --host 127.0.0.1 --port 8000 --reload
+python -m uvicorn app:app --host 127.0.0.1 --port 8002 --reload
 pytest -q
 ```
 
@@ -523,8 +523,8 @@ pytest -q
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `NEXT_PUBLIC_API_URL` | `http://127.0.0.1:8000` | Backend HTTP base URL |
-| `NEXT_PUBLIC_API_BASE_URL` | `http://127.0.0.1:8000` | Alternate backend base URL |
+| `NEXT_PUBLIC_API_URL` | `http://127.0.0.1:8002` | Backend HTTP base URL |
+| `NEXT_PUBLIC_API_BASE_URL` | `http://127.0.0.1:8002` | Alternate backend base URL |
 | `NEXT_PUBLIC_WS_URL` | derived from API URL | Backend WebSocket base URL |
 | `NEXT_PUBLIC_API_WS_URL` | derived from API URL | Alternate WebSocket base URL |
 | `NEXT_PUBLIC_WS_BASE_URL` | derived from API URL | Alternate WebSocket base URL |
@@ -613,8 +613,8 @@ POST http://127.0.0.1:1234/v1/chat/completions
 The configured backend model status endpoints make it easy to verify local model connectivity:
 
 ```text
-GET http://127.0.0.1:8000/api/model/status
-GET http://127.0.0.1:8000/api/model/test
+GET http://127.0.0.1:8002/api/model/status
+GET http://127.0.0.1:8002/api/model/test
 ```
 
 ---

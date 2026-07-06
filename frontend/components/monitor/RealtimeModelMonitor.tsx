@@ -7,9 +7,9 @@ import Card from '../ui/Card'
 import { useModelMetrics } from '../../lib/hooks'
 
 function normalizePoint(point: any, index: number) {
-    const ts = Number(point?.ts || Date.now() - (60 - index) * 1000)
+    const ts = Number(point?.ts || index * 1000)
     return {
-        time: new Date(ts).toLocaleTimeString([], { minute: '2-digit', second: '2-digit' }),
+        time: point?.ts ? new Date(ts).toLocaleTimeString([], { minute: '2-digit', second: '2-digit' }) : `-${60 - index}s`,
         latency: Number(point?.latencyMs ?? point?.latency_ms ?? point?.latency ?? 0),
         throughput: Number(point?.throughput ?? point?.tokens_per_sec ?? point?.tokensPerSecond ?? 0),
         tokens: Number(point?.tokensPerSecond ?? point?.tokens_per_sec ?? point?.throughput ?? 0),

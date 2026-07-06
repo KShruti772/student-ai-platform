@@ -9,6 +9,7 @@ import { motion } from 'framer-motion'
 import * as api from '../../lib/api'
 import { useStore } from '../../lib/store'
 import type { ChatMessage } from '../../lib/types'
+import useMounted from '../../hooks/useMounted'
 
 const SUGGESTIONS = [
     { title: 'Create a roadmap', prompt: 'Create an AI/ML learning roadmap for my current level.' },
@@ -56,7 +57,8 @@ function CodeBlock({ inline, className, children, ...props }: any) {
 function Message({ message, onRetry }: { message: ChatMessage; onRetry: () => void }) {
     const assistant = message.role === 'assistant'
     const [traceOpen, setTraceOpen] = useState(false)
-    const timestamp = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    const mounted = useMounted()
+    const timestamp = mounted ? new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '--:--'
     return (
         <motion.article initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, ease: 'easeOut' }} className={`group mx-auto flex w-full max-w-3xl gap-3 px-4 py-4 sm:gap-4 sm:px-6 ${assistant ? '' : 'justify-end'}`}>
             {assistant && (

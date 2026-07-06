@@ -4,8 +4,10 @@ import React from 'react'
 import { Bell, Command, Search, Sparkles, Wifi, Moon, Sun } from 'lucide-react'
 import { ConnectionSnapshot } from '../../lib/types'
 import StatusPill from './StatusPill'
+import useMounted from '../../hooks/useMounted'
 
 export default function Topbar({ onOpenCommand, connection, theme, toggleTheme }: { onOpenCommand: () => void; connection: ConnectionSnapshot; theme: 'dark' | 'light'; toggleTheme: () => void }) {
+    const mounted = useMounted()
     const status = connection.status || 'offline'
     const statusLabel = status === 'connected' ? `${connection.latencyMs ?? 0}ms live` : status === 'reconnecting' ? 'Reconnecting...' : status === 'offline' ? 'Offline' : status
 
@@ -40,7 +42,7 @@ export default function Topbar({ onOpenCommand, connection, theme, toggleTheme }
                     <div className="ml-auto flex items-center gap-2">
                         <button className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-300 transition hover:bg-white/10">Notifications</button>
                         <button onClick={toggleTheme} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-300 transition hover:bg-white/10">
-                            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+                            {mounted ? theme === 'dark' ? <Sun size={14} /> : <Moon size={14} /> : <span aria-hidden="true" className="inline-block h-[14px] w-[14px]" />}
                         </button>
                     </div>
                 </div>
@@ -48,4 +50,3 @@ export default function Topbar({ onOpenCommand, connection, theme, toggleTheme }
         </div>
     )
 }
-

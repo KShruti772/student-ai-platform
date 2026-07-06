@@ -94,7 +94,7 @@ export default function ModelMonitor() {
 
     // Safe latest and chart data
     const latest = metrics[metrics.length - 1]
-    const chartData = metrics.map((p: any) => ({ time: fmtTime(p?.ts ?? Date.now()), latency: p?.latencyMs ?? p?.latency ?? null, throughput: p?.throughput ?? null }))
+    const chartData = metrics.map((p: any, index: number) => ({ time: p?.ts ? fmtTime(p.ts) : `#${index + 1}`, latency: p?.latencyMs ?? p?.latency ?? null, throughput: p?.throughput ?? null }))
 
     const modelName = latest?.model ?? latest?.model_name ?? 'No model connected'
     const latency = SafeNumber(latest?.latencyMs, latest?.latency, latest?.latency_ms)

@@ -4,8 +4,8 @@ import time
 import statistics
 import websockets
 
-EVENTS_URL = 'ws://127.0.0.1:8000/ws/events'
-SESSION_URL = 'ws://127.0.0.1:8000/ws/session/default'
+EVENTS_URL = 'ws://127.0.0.1:8002/ws/events'
+SESSION_URL = 'ws://127.0.0.1:8002/ws/session/default'
 
 NUM_EVENTS = 10
 NUM_SESSIONS = 10

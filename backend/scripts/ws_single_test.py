@@ -3,7 +3,7 @@ import websockets
 
 async def main():
     try:
-        async with websockets.connect('ws://127.0.0.1:8000/ws/events') as ws:
+        async with websockets.connect('ws://127.0.0.1:8002/ws/events') as ws:
             print('connected to events')
             # receive a message or two
             for _ in range(3):

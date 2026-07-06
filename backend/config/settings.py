@@ -24,7 +24,7 @@ def _csv_env(name: str, default: str) -> list[str]:
 
 @dataclass
 class Settings:
-    # OpenAI-compatible LM Studio endpoint. FastAPI itself runs on port 8000.
+    # OpenAI-compatible LM Studio endpoint. FastAPI itself runs on port 8002.
     model_provider: str = os.getenv("MODEL_PROVIDER", "lmstudio")
     environment: str = os.getenv("ENVIRONMENT", os.getenv("ENV", "development"))
     openai_base_url: str = os.getenv(
