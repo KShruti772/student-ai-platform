@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from local_ai.llm_client import default_llm
+from local_ai.model_manager import model_manager
 from config.settings import settings
 from utils.logger import get_logger
 import asyncio
@@ -28,29 +28,20 @@ async def send_chat(message: str, session_id: str = "default", event_bus=None, p
         {"role": "user", "content": message},
     ]
 
-    loop = asyncio.get_running_loop()
     stream_id = str(uuid.uuid4())
     start_ts = time.time()
 
-    def _generate_sync():
-        try:
-            text = default_llm.generate_text(messages, timeout=settings.ai_request_timeout)
-        except Exception as e:
-            logger.exception("LLM request error: %s", e)
-            raise
-        full_text = text.strip()
-        if not full_text:
-            raise RuntimeError("Model returned an empty response")
-        return full_text, max(1, len(full_text.split()))
-
     try:
-        resp_text, tokens = await loop.run_in_executor(None, _generate_sync)
+        resp_text = (await model_manager.generate_text(messages, timeout=settings.ai_request_timeout)).strip()
+        if not resp_text:
+            raise RuntimeError("Model returned an empty response")
+        tokens = max(1, len(resp_text.split()))
         latency_ms = int((time.time() - start_ts) * 1000)
         result = {
             "content": resp_text,
             "tokens": tokens,
             "latency_ms": latency_ms,
-            "model": getattr(default_llm, "model_name", "local_model"),
+            "model": settings.model_name,
             "session_id": session_id,
             "stream_id": stream_id,
         }
@@ -102,7 +93,7 @@ async def send_chat(message: str, session_id: str = "default", event_bus=None, p
         if "timed out" in raw_error.lower() or "timeout" in raw_error.lower():
             friendly = "LM Studio took too long to respond. Please try again with a shorter prompt or verify the loaded model is responsive."
         else:
-            friendly = "LM Studio could not generate a response. Check that the configured model is loaded and try again."
+            friendly = "AI temporarily unavailable. Core application is still usable. Check that LM Studio is running and the configured model is loaded."
         return ChatServiceResult(
             error=friendly,
             debug={

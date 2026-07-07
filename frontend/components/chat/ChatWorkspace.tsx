@@ -1,15 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
-import { ArrowUp, Bot, Check, ChevronDown, Clipboard, Clock3, Edit3, FileText, Paperclip, RefreshCw, Sparkles, User, X } from 'lucide-react'
+import { ArrowUp, Bot, ChevronDown, Clipboard, Clock3, Edit3, FileText, Paperclip, RefreshCw, Sparkles, User, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import * as api from '../../lib/api'
 import { useStore } from '../../lib/store'
 import type { ChatMessage } from '../../lib/types'
 import useMounted from '../../hooks/useMounted'
+import AIResponseRenderer from '../ai/AIResponseRenderer'
 
 const SUGGESTIONS = [
     { title: 'Create a roadmap', prompt: 'Create an AI/ML learning roadmap for my current level.' },
@@ -34,24 +32,6 @@ function normalizeResponse(value: unknown): string {
     ].filter(([, content]) => content !== undefined && content !== null)
     if (!sections.length) return JSON.stringify(value, null, 2)
     return sections.map(([title, content]) => `### ${title}\n${Array.isArray(content) ? content.map((item) => `- ${item}`).join('\n') : String(content)}`).join('\n\n')
-}
-
-function CodeBlock({ inline, className, children, ...props }: any) {
-    const [copied, setCopied] = useState(false)
-    const text = String(children).replace(/\n$/, '')
-    if (inline) return <code className={className} {...props}>{children}</code>
-    return (
-        <div className="group relative my-4">
-            <button type="button" aria-label="Copy code" onClick={() => {
-                navigator.clipboard.writeText(text)
-                setCopied(true)
-                window.setTimeout(() => setCopied(false), 1500)
-            }} className="absolute right-2 top-2 z-10 flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card/90 px-2.5 text-[11px] text-muted-foreground opacity-0 backdrop-blur transition group-hover:opacity-100 focus:opacity-100">
-                {copied ? <Check size={13} /> : <Clipboard size={13} />} {copied ? 'Copied' : 'Copy'}
-            </button>
-            <code className={className} {...props}>{children}</code>
-        </div>
-    )
 }
 
 function Message({ message, onRetry }: { message: ChatMessage; onRetry: () => void }) {
@@ -82,7 +62,7 @@ function Message({ message, onRetry }: { message: ChatMessage; onRetry: () => vo
                             <span className="ml-1">Thinking through your request...</span>
                         </div>
                     ) : (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={{ code: CodeBlock }}>{message.content}</ReactMarkdown>
+                        <AIResponseRenderer content={message.content} compact={!assistant} maxChars={assistant ? 4200 : 1400} />
                     )}
                     {message.pending && message.content && <span aria-label="Generating response" className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-full bg-[var(--accent-strong)] align-middle" />}
                 </div>
@@ -93,7 +73,7 @@ function Message({ message, onRetry }: { message: ChatMessage; onRetry: () => vo
                         <button type="button" onClick={() => setTraceOpen((value) => !value)} className="flex h-8 items-center gap-1 rounded-lg px-2 text-xs text-[var(--muted)] hover:bg-[var(--surface-2)]"><ChevronDown size={13} className={traceOpen ? 'rotate-180' : ''} /> Details</button>
                     </div>
                 )}
-                {traceOpen && <div className="mt-2 rounded-xl bg-[var(--surface-2)] p-3 text-xs text-[var(--muted)]">Sent to backend endpoint /api/chat with session default. Local fallback appears only when the backend request fails or times out.</div>}
+                {traceOpen && <div className="mt-2 rounded-xl bg-[var(--surface-2)] p-3 text-xs text-[var(--muted)]">Sent to backend endpoint /api/chat with session default. Local fallback appears only when the backend is unreachable.</div>}
             </div>
             {!assistant && (
                 <div className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-2)] text-[var(--muted)]">
@@ -164,9 +144,11 @@ export default function ChatWorkspace() {
         setInput('')
         setAttachment(null)
         addMessage({ id: now, role: 'user', content: prompt })
-        addMessage({ id: now + 1, role: 'assistant', content: '', pending: true })
+        addMessage({ id: now + 1, role: 'assistant', content: 'Connecting to backend...', pending: true })
         try {
-            const result = await api.sendChatMessage(fullPrompt, sessionId)
+            const result = await api.sendChatMessage(fullPrompt, sessionId, (progress) => {
+                setMessageContent(now + 1, `${progress.message}\n\nIf the backend reconnects, I will continue automatically.`)
+            })
             const final = normalizeResponse(result.response)
             if (result.error && !final) {
                 setMessageError(now + 1, `I could not reach the AI backend. ${result.error}`)

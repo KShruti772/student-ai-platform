@@ -1,4 +1,5 @@
 import client from './client'
+import { API_BASE_URL } from './endpoints'
 import { AgentActivity, WorkflowNode, WorkflowEdge, MentorResponse, ModelMetricPoint, ProjectAnalytics } from './types'
 
 const API_PREFIX = '/api'
@@ -53,7 +54,7 @@ export async function getWorkflowTemplates(): Promise<WorkflowTemplate[]> {
 }
 
 export async function getMentorExplanation(prompt: string): Promise<MentorResponse> {
-    const res = await client.post(`${API_PREFIX}/mentor`, { prompt })
+    const res = await client.post(`${API_PREFIX}/mentor`, { message: prompt, session_id: 'default' }, { timeout: 120_000 })
     return res.data as MentorResponse
 }
 
@@ -72,9 +73,89 @@ export type ModelStatus = {
     error?: string | null
 }
 
+export type SystemStatus = {
+    backend: 'online' | 'offline'
+    lmstudio: 'loading' | 'online' | 'offline'
+    model: string
+    version: string
+    uptime: number
+    services: Record<string, string>
+    details: {
+        api_url?: string
+        provider: string
+        environment: string
+        lmstudio_url: string
+        model_ready: boolean
+        loaded_models: string[]
+        latency_ms: number | null
+        context_size?: number | null
+        gpu?: string | null
+        error?: string | null
+        last_checked?: number | null
+    }
+}
+
+export type InferenceTestResult = {
+    ok: boolean
+    inference: {
+        status: 'ok' | 'failed' | 'timeout'
+        latency_ms: number | null
+        error: string | null
+    }
+    timestamp: string
+    fixes?: string[]
+}
+
+export type ResumeAnalysis = {
+    ats_score: number
+    keyword_fit: number
+    summary: string
+    strengths: string[]
+    weaknesses: string[]
+    missing_keywords: string[]
+    improved_bullets: string[]
+    skills_to_add: string[]
+    project_suggestions: string[]
+    priority_improvements: string[]
+    rewritten_summary: string
+    interview_readiness: string
+    next_steps: string[]
+}
+
+export type ResumeAnalyzeRequest = {
+    resume_text: string
+    target_role: string
+    job_keywords: string[]
+    manual_profile: string
+}
+
+export async function analyzeResume(payload: ResumeAnalyzeRequest): Promise<ResumeAnalysis> {
+    try {
+        const res = await client.post(`${API_PREFIX}/resume/analyze`, payload, { timeout: 120_000 })
+        return res.data as ResumeAnalysis
+    } catch (error) {
+        const anyError = error as any
+        const detail = anyError?.response?.data?.detail || anyError?.response?.data?.error || anyError?.message
+        if (isBackendUnreachable(error)) {
+            throw new Error(`Backend is not running. Start FastAPI using: python -m uvicorn app:app --reload --host 127.0.0.1 --port 8000`)
+        }
+        throw new Error(String(detail || 'AI model is not connected. Start LM Studio, load the configured model, and retry.'))
+    }
+}
+
 export async function getModelStatus(): Promise<ModelStatus> {
     const res = await client.get(`${API_PREFIX}/model/status`, { timeout: 15_000 })
     return res.data as ModelStatus
+}
+
+export async function getSystemStatus(): Promise<SystemStatus> {
+    const res = await client.get(`${API_PREFIX}/system/status`, { timeout: 5_000 })
+    return res.data as SystemStatus
+}
+
+export async function runSystemInferenceTest(): Promise<InferenceTestResult> {
+    const res = await client.post(`${API_PREFIX}/system/inference-test`, {}, { timeout: 30_000 })
+    return res.data as InferenceTestResult
 }
 
 export async function getSession(sessionId: string) {
@@ -124,7 +205,7 @@ export async function listSkills() {
 
 export async function detectSkills(input: string | Record<string, unknown>) {
     const payload = typeof input === 'string' ? { text: input } : input
-    const res = await client.post('/skills/detect', payload).catch(() => client.post(`${API_PREFIX}/skills/detect`, payload))
+    const res = await client.post('/skills/detect', payload, { timeout: 120_000 })
     return res.data
 }
 
@@ -134,8 +215,78 @@ export async function activateSkill(name: string) {
 }
 
 export async function searchKnowledge(query: string, collection = 'default') {
-    const res = await client.post('/knowledge/search', { query, collection }).catch(() => client.get(`${API_PREFIX}/knowledge/search`, { params: { q: query, collection } }))
+    const res = await client.get('/knowledge/search', { params: { q: query, collection } })
     return res.data
+}
+
+export type KnowledgeUploadResponse = {
+    success: boolean
+    status?: string
+    filename: string
+    collection?: string
+    message: string
+    backend_saved?: boolean
+    extraction_pending?: boolean
+    result?: { indexed_chunks?: number }
+    metadata?: Record<string, unknown>
+    warning?: string | null
+}
+
+export type KnowledgeConnectionStatus = {
+    backendConnected: boolean
+    knowledgeEndpointAvailable: boolean
+    message: string
+    details?: string
+    apiUrl: string
+}
+
+export function describeUploadError(error: unknown) {
+    const anyError = error as any
+    const status = anyError?.response?.status
+    const detail = anyError?.response?.data?.detail || anyError?.response?.data?.error || anyError?.response?.data?.message
+    const code = anyError?.code
+    const message = String(anyError?.message || '')
+
+    if (code === 'ECONNABORTED') return 'Upload timed out. Try a smaller file or check backend logs.'
+    if (status === 404) return 'Knowledge upload endpoint was not found.'
+    if (status === 413) return 'File is larger than 20 MB.'
+    if (status === 415 || status === 400) return String(detail || 'Please upload PDF, TXT, MD, or DOCX.')
+    if (message.toLowerCase().includes('network') || code === 'ERR_NETWORK' || !anyError?.response) {
+        return 'Backend is not running. Start FastAPI using: python -m uvicorn app:app --reload --host 127.0.0.1 --port 8000'
+    }
+    if (message.toLowerCase().includes('cors')) return 'Upload blocked by browser CORS policy. Check backend CORS settings.'
+    return String(detail || message || 'Upload failed. Check backend logs for details.')
+}
+
+export async function checkKnowledgeConnection(): Promise<KnowledgeConnectionStatus> {
+    try {
+        await client.get('/health', { timeout: 5_000 })
+        try {
+            await client.get('/knowledge/health', { timeout: 5_000 })
+            return {
+                backendConnected: true,
+                knowledgeEndpointAvailable: true,
+                message: 'Backend connected. Knowledge upload endpoint is available.',
+                apiUrl: API_BASE_URL,
+            }
+        } catch (error) {
+            return {
+                backendConnected: true,
+                knowledgeEndpointAvailable: false,
+                message: 'Backend connected, but the knowledge upload endpoint was not found.',
+                details: describeUploadError(error),
+                apiUrl: API_BASE_URL,
+            }
+        }
+    } catch (error) {
+        return {
+            backendConnected: false,
+            knowledgeEndpointAvailable: false,
+            message: 'Backend is not running. Start FastAPI using: python -m uvicorn app:app --reload --host 127.0.0.1 --port 8000',
+            details: describeUploadError(error),
+            apiUrl: API_BASE_URL,
+        }
+    }
 }
 
 export async function uploadKnowledge(file: File, collection = 'default', onProgress?: (percent: number) => void) {
@@ -143,13 +294,18 @@ export async function uploadKnowledge(file: File, collection = 'default', onProg
     body.append('file', file)
     const config = {
         params: { collection },
+        timeout: 120_000,
         onUploadProgress: (event: any) => {
             if (!event.total || !onProgress) return
             onProgress(Math.round((event.loaded / event.total) * 100))
         },
     }
-    const res = await client.post('/knowledge/upload', body, config).catch(() => client.post(`${API_PREFIX}/knowledge/upload`, body, config))
-    return res.data
+    try {
+        const res = await client.post('/knowledge/upload', body, config)
+        return res.data as KnowledgeUploadResponse
+    } catch (error) {
+        throw new Error(describeUploadError(error))
+    }
 }
 
 export type ChatResponse = {
@@ -157,6 +313,12 @@ export type ChatResponse = {
     error?: string
     offline?: boolean
     debug?: unknown
+}
+
+export type RetryProgress = {
+    attempt: number
+    maxAttempts: number
+    message: string
 }
 
 function textFromPayload(payload: unknown) {
@@ -176,11 +338,58 @@ function backendError(error: unknown) {
     return String(error)
 }
 
-function unavailableError(error: unknown, timeoutSeconds = 90) {
+function unavailableError(error: unknown) {
     const anyError = error as any
-    if (anyError?.code === 'ECONNABORTED') return `The AI request timed out after ${timeoutSeconds} seconds, so I generated a local fallback to keep you moving.`
-    if (anyError?.code === 'ERR_NETWORK' || !anyError?.response) return 'I could not reach the backend, so I generated a local fallback to keep you moving.'
+    if (anyError?.code === 'ERR_NETWORK' || anyError?.code === 'ERR_CONNECTION_REFUSED' || (!anyError?.response && anyError?.request)) {
+        return `Backend is offline or unreachable at ${API_BASE_URL}. Start FastAPI with: python -m uvicorn app:app --reload --host 127.0.0.1 --port 8000`
+    }
     return ''
+}
+
+function isBackendUnreachable(error: unknown) {
+    return Boolean(unavailableError(error))
+}
+
+async function wait(ms: number) {
+    await new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function postWithBackendRetry<T>(
+    url: string,
+    payload: unknown,
+    options: { timeout?: number; attempts?: number; onRetry?: (progress: RetryProgress) => void } = {},
+) {
+    const maxAttempts = options.attempts ?? 3
+    let lastError: unknown
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+            if (attempt > 1) options.onRetry?.({ attempt, maxAttempts, message: `Retrying backend connection... Attempt ${attempt}/${maxAttempts}` })
+            return await client.post<T>(url, payload, { timeout: options.timeout })
+        } catch (error) {
+            lastError = error
+            if (!isBackendUnreachable(error) || attempt === maxAttempts) break
+            options.onRetry?.({ attempt, maxAttempts, message: `Connecting... Attempt ${attempt}/${maxAttempts}` })
+            await wait(450 * Math.pow(2, attempt - 1))
+        }
+    }
+    throw lastError
+}
+
+function systemDiagnostic(status: SystemStatus | null) {
+    if (!status || status.backend !== 'online') return `Backend service is not responding at ${API_BASE_URL}.`
+    if (status.lmstudio === 'offline') return `LM Studio is not reachable at ${status.details.lmstudio_url}. Start LM Studio, open Local Server, and load a model.`
+    if (!status.details.model_ready) return `Configured model does not match loaded model. Update backend/.env MODEL_NAME or load ${status.model}.`
+    return ''
+}
+
+async function aiDiagnostic(errorMessage: string) {
+    try {
+        const status = await getSystemStatus()
+        const diagnostic = systemDiagnostic(status)
+        return diagnostic ? `${errorMessage}\n\n${diagnostic}` : errorMessage
+    } catch {
+        return errorMessage
+    }
 }
 
 function chatError(data: ChatResponse, fallbackMessage = 'The backend returned an empty AI response.') {
@@ -260,57 +469,58 @@ function localProjects(payload: Record<string, unknown>) {
     }
 }
 
-export async function sendMentorMessage(message: string, sessionId = 'default'): Promise<ChatResponse> {
+export async function sendMentorMessage(message: string, sessionId = 'default', onRetry?: (progress: RetryProgress) => void): Promise<ChatResponse> {
     try {
-        const res = await client.post(`${API_PREFIX}/mentor`, { message, session_id: sessionId })
+        const res = await postWithBackendRetry<ChatResponse>(`${API_PREFIX}/mentor`, { message, session_id: sessionId }, { timeout: 120_000, onRetry })
         const data = res.data as ChatResponse
         const error = chatError(data, 'The mentor endpoint returned an empty AI response.')
-        if (error) return { error }
+        if (error) return { response: localAssistantReply(message), error: await aiDiagnostic(error) }
         return data
     } catch (error) {
         const offline = unavailableError(error)
         if (offline) return { response: localAssistantReply(message), error: offline, offline: true }
-        return { error: backendError(error) }
+        return { error: await aiDiagnostic(backendError(error)) }
     }
 }
 
-export async function sendChatMessage(message: string, sessionId = 'default'): Promise<ChatResponse> {
+export async function sendChatMessage(message: string, sessionId = 'default', onRetry?: (progress: RetryProgress) => void): Promise<ChatResponse> {
     try {
-        const res = await client.post(`${API_PREFIX}/chat`, { message, session_id: sessionId }, { timeout: 120_000 })
+        const res = await postWithBackendRetry<ChatResponse>(`${API_PREFIX}/chat`, { message, session_id: sessionId }, { timeout: 120_000, onRetry })
         const data = res.data as ChatResponse
         const error = chatError(data)
-        if (error) return { error }
+        if (error) return { response: localAssistantReply(message), error: await aiDiagnostic(error) }
         return data
     } catch (error) {
-        const offline = unavailableError(error, 120)
+        const offline = unavailableError(error)
         if (offline) return { response: localAssistantReply(message), error: offline, offline: true }
-        return { error: backendError(error) }
+        return { error: await aiDiagnostic(backendError(error)) }
     }
 }
 
 export async function buildProjectWorkflow(payload: Record<string, unknown>) {
     try {
         const message = textFromPayload(payload)
-        const res = await client.post('/workflow/project-build', { message, session_id: 'default' })
+        const res = await client.post('/workflow/project-build', { message, session_id: 'default' }, { timeout: 120_000 })
         if (res.data?.projects) return res.data
         return localProjects(payload)
-    } catch {
-        return localProjects(payload)
+    } catch (error) {
+        if (isBackendUnreachable(error)) return localProjects(payload)
+        throw error
     }
 }
 
 export async function debugWorkflow(payload: Record<string, unknown>) {
-    const res = await client.post('/workflow/debug', payload)
+    const res = await client.post('/workflow/debug', payload, { timeout: 120_000 })
     return res.data
 }
 
 export async function explainWorkflow(payload: Record<string, unknown>) {
-    const res = await client.post('/workflow/explain', payload)
+    const res = await client.post('/workflow/explain', payload, { timeout: 120_000 })
     return res.data
 }
 
 export async function injectSkills(payload: Record<string, unknown>) {
-    const res = await client.post('/skills/inject', payload)
+    const res = await client.post('/skills/inject', payload, { timeout: 120_000 })
     return res.data
 }
 
@@ -325,12 +535,16 @@ export default {
     getMentorExplanation,
     getModelMetrics,
     getProjectAnalytics,
+    getSystemStatus,
+    runSystemInferenceTest,
+    analyzeResume,
     sendMentorMessage,
     sendChatMessage,
     buildProjectWorkflow,
     debugWorkflow,
     explainWorkflow,
     uploadKnowledge,
+    checkKnowledgeConnection,
     searchKnowledge,
     detectSkills,
     injectSkills,

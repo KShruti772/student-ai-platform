@@ -371,4 +371,9 @@ async def retry_step(workflow_id: str, step_id: str, event_bus=None) -> dict[str
 def default_graph() -> dict[str, Any]:
     template = _template("project_builder")
     steps = [{**step, "status": "pending", "progress": 0} for step in template["steps"]]
-    return {"nodes": _nodes_for_steps(steps), "edges": _edges_for_steps(steps)}
+    return {
+        "nodes": _nodes_for_steps(steps),
+        "edges": _edges_for_steps(steps),
+        "status": "idle",
+        "progress": 0,
+    }

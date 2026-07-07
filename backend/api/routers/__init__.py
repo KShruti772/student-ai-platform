@@ -7,7 +7,9 @@ from .model import router as model_router
 from .projects import router as projects_router
 from .chat import router as chat_router
 from .mentor import router as mentor_router
+from .resume import router as resume_router
 from .session import router as session_router
+from .system import router as system_router
 
 router = APIRouter(prefix="/api")
 
@@ -17,7 +19,9 @@ router.include_router(model_router, prefix="/model")
 router.include_router(projects_router, prefix="/projects")
 router.include_router(chat_router)
 router.include_router(mentor_router)
+router.include_router(resume_router, prefix="/resume")
 router.include_router(session_router)
+router.include_router(system_router, prefix="/system")
 
 
 @router.get("/health/full")
@@ -33,24 +37,3 @@ async def health_full(req: Request):
 		"orchestrator": orch is not None,
 		"model_api_url": getattr(settings, "api_url", None),
 	}
-
-
-print("LOADING AGENTS")
-from .agents import router as agents_router
-
-print("LOADING WORKFLOW")
-from .workflow import router as workflow_router
-
-print("LOADING MODEL")
-from .model import router as model_router
-
-print("LOADING PROJECTS")
-from .projects import router as projects_router
-
-print("LOADING CHAT")
-from .chat import router as chat_router
-
-print("LOADING MENTOR")
-from .mentor import router as mentor_router
-
-print("ALL ROUTERS LOADED")

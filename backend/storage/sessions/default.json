@@ -1,0 +1,114 @@
+{
+  "session_id": "default",
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "Good morning! How can I assist you today?",
+      "tokens": 8,
+      "latency_ms": 4792,
+      "model": "qwen2.5-coder-7b-instruct",
+      "ts": 1783406082877
+    },
+    {
+      "role": "assistant",
+      "content": "Good evening! How can I assist you today?",
+      "tokens": 8,
+      "latency_ms": 11117,
+      "model": "qwen2.5-coder-7b-instruct",
+      "ts": 1783419036569
+    }
+  ],
+  "events": [
+    {
+      "type": "token_stream",
+      "stream_id": "3ff79578-b603-41a7-acd3-cafc8c79d8e0",
+      "session_id": "default",
+      "token": "Good morning! How can I assist you today?",
+      "ts": 1783406082841
+    },
+    {
+      "type": "token_stream",
+      "stream_id": "3ff79578-b603-41a7-acd3-cafc8c79d8e0",
+      "session_id": "default",
+      "token": "Good morning! How can I assist you today?",
+      "ts": 1783406082841,
+      "event_type": "token_stream"
+    },
+    {
+      "type": "agent_finished",
+      "session_id": "default",
+      "stream_id": "3ff79578-b603-41a7-acd3-cafc8c79d8e0",
+      "payload": {
+        "content": "Good morning! How can I assist you today?",
+        "tokens": 8,
+        "latency_ms": 4792,
+        "model": "qwen2.5-coder-7b-instruct",
+        "session_id": "default",
+        "stream_id": "3ff79578-b603-41a7-acd3-cafc8c79d8e0"
+      },
+      "ts": 1783406082879
+    },
+    {
+      "type": "error",
+      "session_id": "default",
+      "error": "timeout",
+      "ts": 1783410092585
+    },
+    {
+      "type": "error",
+      "session_id": "default",
+      "error": "timeout",
+      "ts": 1783410303275
+    },
+    {
+      "type": "error",
+      "session_id": "default",
+      "error": "Model request timed out.",
+      "ts": 1783413213956
+    },
+    {
+      "type": "error",
+      "session_id": "default",
+      "error": "Model request timed out.",
+      "ts": 1783418984554
+    },
+    {
+      "type": "token_stream",
+      "stream_id": "63f0d888-74ed-454a-908b-c80e3a5a52e5",
+      "session_id": "default",
+      "token": "Good evening! How can I assist you today?",
+      "ts": 1783419036420
+    },
+    {
+      "type": "token_stream",
+      "stream_id": "63f0d888-74ed-454a-908b-c80e3a5a52e5",
+      "session_id": "default",
+      "token": "Good evening! How can I assist you today?",
+      "ts": 1783419036420,
+      "event_type": "token_stream"
+    },
+    {
+      "type": "agent_finished",
+      "session_id": "default",
+      "stream_id": "63f0d888-74ed-454a-908b-c80e3a5a52e5",
+      "payload": {
+        "content": "Good evening! How can I assist you today?",
+        "tokens": 8,
+        "latency_ms": 11117,
+        "model": "qwen2.5-coder-7b-instruct",
+        "session_id": "default",
+        "stream_id": "63f0d888-74ed-454a-908b-c80e3a5a52e5"
+      },
+      "ts": 1783419036583
+    }
+  ],
+  "workflow_history": [],
+  "token_usage": {
+    "qwen2.5-coder-7b-instruct": 32
+  },
+  "metrics": {
+    "last_response_latency_ms": 4792
+  },
+  "agent_logs": [],
+  "created_ts": 1783406082841
+}

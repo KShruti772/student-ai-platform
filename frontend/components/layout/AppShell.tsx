@@ -1,21 +1,29 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Route } from 'next'
 import {
+    Activity,
+    AlertTriangle,
     BarChart3,
     Bell,
     BookOpen,
+    CheckCircle2,
+    Copy,
+    Cpu,
+    ExternalLink,
     FileText,
     Bot,
     GraduationCap,
     ChevronLeft,
     ChevronRight,
     Home,
+    Loader2,
     Menu,
     MessageCircle,
     Moon,
+    RefreshCw,
     Search,
     Settings,
     Sparkles,
@@ -34,6 +42,7 @@ import CommandPalette from '../ui/CommandPalette'
 import ErrorBoundary from '../ErrorBoundary'
 import SidebarItem from '../ui/SidebarItem'
 import * as api from '../../lib/api'
+import { API_BASE_URL } from '../../lib/endpoints'
 import useMounted from '../../hooks/useMounted'
 
 type NavItem = { label: string; href: Route; icon: LucideIcon }
@@ -91,6 +100,8 @@ const PAGE_TITLES: Record<string, string> = {
 type ShellStatus = {
     modelLabel: string
     modelConnected: boolean
+    severity: 'healthy' | 'warning' | 'error' | 'loading'
+    detail: string
 }
 
 function SidebarContent({
@@ -102,6 +113,7 @@ function SidebarContent({
     onToggleTheme,
     resolvedTheme,
     mounted,
+    onOpenDiagnostics,
 }: {
     collapsed: boolean
     onNavigate?: () => void
@@ -111,6 +123,7 @@ function SidebarContent({
     onToggleTheme: () => void
     resolvedTheme?: string
     mounted: boolean
+    onOpenDiagnostics: () => void
 }) {
     const pathname = usePathname()
 
@@ -169,19 +182,20 @@ function SidebarContent({
             </nav>
 
             <div className={clsx('border-t border-border pt-4', collapsed ? 'space-y-2' : 'space-y-3')}>
-                <div className={clsx('rounded-2xl border border-border bg-card', collapsed ? 'grid h-11 place-items-center' : 'p-3')}>
+                <button onClick={onOpenDiagnostics} className={clsx('w-full rounded-2xl border border-border bg-card text-left transition hover:bg-secondary', collapsed ? 'grid h-11 place-items-center' : 'p-3')}>
                     {collapsed ? (
-                        <span className={clsx('h-2.5 w-2.5 rounded-full', shellStatus.modelConnected ? 'bg-emerald-400' : 'bg-amber-400')} />
+                        <StatusDot severity={shellStatus.severity} />
                     ) : (
                         <div className="flex items-center gap-3">
-                            <span className={clsx('h-2.5 w-2.5 rounded-full', shellStatus.modelConnected ? 'bg-emerald-400' : 'bg-amber-400')} />
+                            <StatusDot severity={shellStatus.severity} />
                             <div className="min-w-0">
-                                <div className="text-xs text-muted-foreground">Model Status</div>
+                                <div className="text-xs text-muted-foreground">Local AI Status</div>
                                 <div className="truncate text-sm font-medium text-foreground">{shellStatus.modelLabel}</div>
+                                <div className="truncate text-xs text-muted-foreground">{shellStatus.detail}</div>
                             </div>
                         </div>
                     )}
-                </div>
+                </button>
                 <button aria-label="Toggle theme" onClick={onToggleTheme} className={clsx('flex h-11 items-center rounded-2xl border border-border bg-card text-muted-foreground transition hover:bg-secondary hover:text-foreground', collapsed ? 'w-full justify-center' : 'w-full gap-3 px-3')}>
                     <ThemeToggleIcon mounted={mounted} resolvedTheme={resolvedTheme} size={17} />
                     {!collapsed && <span className="text-sm font-medium">Theme</span>}
@@ -208,6 +222,33 @@ function ThemeToggleIcon({ mounted, resolvedTheme, size }: { mounted: boolean; r
     return resolvedTheme === 'dark' ? <Sun size={size} /> : <Moon size={size} />
 }
 
+function StatusDot({ severity }: { severity: ShellStatus['severity'] }) {
+    const color = severity === 'healthy' ? 'bg-emerald-400 shadow-emerald-400/50' : severity === 'warning' ? 'bg-amber-400 shadow-amber-400/50' : severity === 'loading' ? 'bg-cyan-300 shadow-cyan-300/50' : 'bg-rose-400 shadow-rose-400/50'
+    return <span className={clsx('h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_16px_currentColor]', color, severity === 'loading' && 'animate-pulse')} />
+}
+
+function fallbackSystemStatus(error = `Backend service is not responding at ${API_BASE_URL}.`): api.SystemStatus {
+    return {
+        backend: 'offline',
+        lmstudio: 'offline',
+        model: 'Unknown',
+        version: '1.0',
+        uptime: 0,
+        services: {},
+        details: {
+            api_url: API_BASE_URL,
+            provider: 'local',
+            environment: 'development',
+            lmstudio_url: 'http://127.0.0.1:1234/v1',
+            model_ready: false,
+            loaded_models: [],
+            latency_ms: null,
+            error,
+            last_checked: null,
+        },
+    }
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
@@ -215,8 +256,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const [mobileOpen, setMobileOpen] = useState(false)
     const [commandOpen, setCommandOpen] = useState(false)
     const [notificationsOpen, setNotificationsOpen] = useState(false)
+    const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
+    const [diagnosticsLoading, setDiagnosticsLoading] = useState(true)
+    const [inferenceResult, setInferenceResult] = useState<api.InferenceTestResult | null>(null)
+    const [inferenceLoading, setInferenceLoading] = useState(false)
     const mounted = useMounted()
-    const [modelStatus, setModelStatus] = useState<api.ModelStatus | null>(null)
+    const [systemStatus, setSystemStatus] = useState<api.SystemStatus | null>(null)
     const { setTheme, resolvedTheme } = useTheme()
 
     useEffect(() => {
@@ -224,13 +269,50 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setCollapsed(savedCollapsed === 'collapsed')
     }, [])
 
-    useEffect(() => {
-        let mountedEffect = true
-        api.getModelStatus()
-            .then(status => { if (mountedEffect) setModelStatus(status) })
-            .catch(() => { if (mountedEffect) setModelStatus({ connected: false, model: 'Model unavailable', error: 'Backend unavailable' }) })
-        return () => { mountedEffect = false }
+    const refreshDiagnostics = useCallback(async () => {
+        setDiagnosticsLoading(true)
+        try {
+            const status = await api.getSystemStatus()
+            setSystemStatus(status)
+        } catch (error) {
+            setSystemStatus(fallbackSystemStatus(error instanceof Error ? error.message : 'Backend Offline'))
+            setInferenceResult(null)
+        } finally {
+            setDiagnosticsLoading(false)
+        }
     }, [])
+
+    const runDiagnostics = useCallback(async () => {
+        setInferenceLoading(true)
+        try {
+            const result = await api.runSystemInferenceTest()
+            setInferenceResult(result)
+        } catch (error) {
+            setInferenceResult({
+                ok: false,
+                inference: {
+                    status: 'failed',
+                    latency_ms: null,
+                    error: error instanceof Error ? error.message : 'Inference test failed.',
+                },
+                timestamp: new Date().toISOString(),
+                fixes: ['Model is loaded but response test failed. Try a smaller model or restart LM Studio.'],
+            })
+        } finally {
+            setInferenceLoading(false)
+        }
+    }, [])
+
+    useEffect(() => {
+        refreshDiagnostics()
+        const interval = window.setInterval(refreshDiagnostics, 15_000)
+        const onRefresh = () => refreshDiagnostics()
+        window.addEventListener('student-ai:refresh-system-status', onRefresh)
+        return () => {
+            window.clearInterval(interval)
+            window.removeEventListener('student-ai:refresh-system-status', onRefresh)
+        }
+    }, [refreshDiagnostics])
 
     const toggleTheme = () => {
         if (!mounted) return
@@ -249,10 +331,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         action: () => router.push(item.href),
     })), [router])
 
-    const shellStatus = useMemo<ShellStatus>(() => ({
-        modelLabel: modelStatus?.model || 'Checking model',
-        modelConnected: Boolean(modelStatus?.connected && modelStatus?.model_loaded),
-    }), [modelStatus])
+    const shellStatus = useMemo<ShellStatus>(() => {
+        if (diagnosticsLoading && !systemStatus) return { modelLabel: 'Checking local AI', modelConnected: false, severity: 'loading', detail: 'Running diagnostics' }
+        if (systemStatus?.backend !== 'online') return { modelLabel: 'Backend offline', modelConnected: false, severity: 'error', detail: 'Start FastAPI on port 8000' }
+        if (systemStatus.lmstudio === 'loading') return { modelLabel: 'Model loading', modelConnected: false, severity: 'loading', detail: 'Checking LM Studio in background' }
+        if (systemStatus.lmstudio === 'offline') return { modelLabel: 'LM Studio offline', modelConnected: false, severity: 'error', detail: 'Enable local server on 1234' }
+        if (!systemStatus.details.model_ready) return { modelLabel: 'Model mismatch', modelConnected: false, severity: 'warning', detail: systemStatus.details.loaded_models[0] ? `Loaded: ${systemStatus.details.loaded_models[0]}` : 'Load a model in LM Studio' }
+        if (inferenceResult && !inferenceResult.ok) return { modelLabel: 'Inference failed', modelConnected: false, severity: 'warning', detail: inferenceResult.inference.error || 'Run diagnostics again' }
+        const detail = inferenceResult?.ok ? `${inferenceResult.inference.latency_ms ?? 0} ms inference` : 'Status check only'
+        return { modelLabel: systemStatus.model || 'AI Ready', modelConnected: true, severity: 'healthy', detail }
+    }, [diagnosticsLoading, inferenceResult, systemStatus])
 
     return (
         <ErrorBoundary>
@@ -260,7 +348,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <CommandPalette commands={commands} open={commandOpen} onOpenChange={setCommandOpen} />
 
                 <motion.aside layout initial={false} animate={{ width: collapsed ? 88 : 280 }} transition={{ type: 'spring', stiffness: 260, damping: 30 }} className={clsx('fixed inset-y-0 left-0 z-40 hidden p-4 transition-[width] duration-200 lg:block', collapsed ? 'w-[88px]' : 'w-[280px]')}>
-                    <SidebarContent collapsed={collapsed} onToggle={toggleSidebar} onSearch={() => setCommandOpen(true)} shellStatus={shellStatus} onToggleTheme={toggleTheme} resolvedTheme={resolvedTheme} mounted={mounted} />
+                    <SidebarContent collapsed={collapsed} onToggle={toggleSidebar} onSearch={() => setCommandOpen(true)} shellStatus={shellStatus} onToggleTheme={toggleTheme} resolvedTheme={resolvedTheme} mounted={mounted} onOpenDiagnostics={() => setDiagnosticsOpen(true)} />
                 </motion.aside>
 
                 {mobileOpen && (
@@ -268,7 +356,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         <button aria-label="Close navigation" onClick={() => setMobileOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
                         <aside className="relative h-full w-[280px] bg-sidebar p-3 shadow-2xl">
                             <button aria-label="Close navigation" onClick={() => setMobileOpen(false)} className="absolute right-5 top-5 z-10 grid h-9 w-9 place-items-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"><X size={18} /></button>
-                            <SidebarContent collapsed={false} onToggle={() => setMobileOpen(false)} onNavigate={() => setMobileOpen(false)} onSearch={() => setCommandOpen(true)} shellStatus={shellStatus} onToggleTheme={toggleTheme} resolvedTheme={resolvedTheme} mounted={mounted} />
+                            <SidebarContent collapsed={false} onToggle={() => setMobileOpen(false)} onNavigate={() => setMobileOpen(false)} onSearch={() => setCommandOpen(true)} shellStatus={shellStatus} onToggleTheme={toggleTheme} resolvedTheme={resolvedTheme} mounted={mounted} onOpenDiagnostics={() => setDiagnosticsOpen(true)} />
                         </aside>
                     </div>
                 )}
@@ -283,10 +371,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         <button onClick={() => setCommandOpen(true)} className="hidden h-11 min-w-[260px] items-center gap-2 rounded-2xl border border-border bg-card px-4 text-left text-sm text-muted-foreground transition hover:border-[var(--border-strong)] hover:bg-secondary md:flex">
                             <Search size={15} /><span className="flex-1">Search workspace</span><kbd className="rounded border border-border px-1.5 py-0.5 text-xs">Ctrl K</kbd>
                         </button>
-                        <div className="hidden h-11 max-w-[240px] items-center gap-2 rounded-2xl border border-border bg-card px-4 text-sm text-muted-foreground lg:flex">
-                            <span className={clsx('h-2.5 w-2.5 rounded-full', shellStatus.modelConnected ? 'bg-emerald-400' : 'bg-amber-400')} />
+                        <button onClick={() => setDiagnosticsOpen(true)} className="hidden h-11 max-w-[280px] items-center gap-2 rounded-2xl border border-border bg-card px-4 text-left text-sm text-muted-foreground transition hover:bg-secondary lg:flex">
+                            <StatusDot severity={shellStatus.severity} />
                             <span className="truncate">{shellStatus.modelLabel}</span>
-                        </div>
+                        </button>
                         <div className="relative">
                             <button aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen(value => !value)} className="grid h-11 w-11 place-items-center rounded-2xl border border-border bg-card text-muted-foreground transition hover:bg-secondary hover:text-foreground">
                                 <Bell size={16} />
@@ -296,10 +384,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                                     <div className="font-semibold text-foreground">Notifications</div>
                                     <div className="mt-3 rounded-2xl border border-border bg-secondary p-3">
                                         <div className="flex items-center gap-2">
-                                            <span className={clsx('h-2.5 w-2.5 rounded-full', shellStatus.modelConnected ? 'bg-emerald-400' : 'bg-amber-400')} />
-                                            <span className="font-medium text-foreground">{shellStatus.modelConnected ? 'AI model connected' : 'AI model needs attention'}</span>
+                                            <StatusDot severity={shellStatus.severity} />
+                                            <span className="font-medium text-foreground">{shellStatus.modelConnected ? 'Local AI ready' : shellStatus.modelLabel}</span>
                                         </div>
-                                        <p className="mt-2 leading-6 text-muted-foreground">{shellStatus.modelConnected ? `${shellStatus.modelLabel} is available for AI workflows.` : 'Start the backend and LM Studio to enable real AI responses.'}</p>
+                                        <p className="mt-2 leading-6 text-muted-foreground">{shellStatus.detail}</p>
+                                        <button onClick={() => setDiagnosticsOpen(true)} className="mt-3 text-xs font-medium text-cyan-200">Open diagnostics</button>
                                     </div>
                                 </div>
                             )}
@@ -320,7 +409,185 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         </AnimatePresence>
                     </div>
                 </div>
+                {diagnosticsOpen && (
+                    <SystemDiagnosticsModal
+                        status={systemStatus}
+                        loading={diagnosticsLoading}
+                        onClose={() => setDiagnosticsOpen(false)}
+                        onRefresh={refreshDiagnostics}
+                        onRunDiagnostics={runDiagnostics}
+                        inferenceResult={inferenceResult}
+                        inferenceLoading={inferenceLoading}
+                    />
+                )}
             </div>
         </ErrorBoundary>
     )
+}
+
+function CheckRow({ label, ok, detail, pending }: { label: string; ok?: boolean; detail?: string; pending?: boolean }) {
+    const severity: ShellStatus['severity'] = pending ? 'warning' : ok ? 'healthy' : 'error'
+    return (
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-secondary p-4">
+            <div className="flex items-center gap-3">
+                <StatusDot severity={severity} />
+                <div>
+                    <div className="text-sm font-medium text-foreground">{label}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{detail || (ok ? 'Healthy' : 'Needs attention')}</div>
+                </div>
+            </div>
+            {ok ? <CheckCircle2 size={17} className="text-emerald-300" /> : <AlertTriangle size={17} className={pending ? 'text-amber-300' : 'text-rose-300'} />}
+        </div>
+    )
+}
+
+function fixSuggestions(status: api.SystemStatus | null) {
+    if (!status || status.backend !== 'online') {
+        return [
+            'Backend service is not responding at http://127.0.0.1:8000.',
+            'cd backend',
+            'venv\\Scripts\\activate',
+            'python -m uvicorn app:app --host 127.0.0.1 --port 8000 --reload',
+        ]
+    }
+    if (status.lmstudio === 'offline') {
+        return [
+            'LM Studio is not reachable at http://127.0.0.1:1234/v1.',
+            'Start LM Studio, open Local Server, and load a model.',
+        ]
+    }
+    if (!status.details.model_ready) {
+        return [
+            'Configured model does not match loaded model.',
+            'Update backend/.env MODEL_NAME or load the correct model.',
+        ]
+    }
+    return ['Everything looks healthy.']
+}
+
+function SystemDiagnosticsModal({
+    status,
+    loading,
+    inferenceResult,
+    inferenceLoading,
+    onClose,
+    onRefresh,
+    onRunDiagnostics,
+}: {
+    status: api.SystemStatus | null
+    loading: boolean
+    inferenceResult: api.InferenceTestResult | null
+    inferenceLoading: boolean
+    onClose: () => void
+    onRefresh: () => void
+    onRunDiagnostics: () => void
+}) {
+    const backendConnected = status?.backend === 'online'
+    const lmstudioConnected = status?.lmstudio === 'online'
+    const modelMatch = Boolean(status?.details.model_ready)
+    const inferenceChecked = Boolean(inferenceResult)
+    const inferenceOk = Boolean(inferenceResult?.ok)
+    const ready = backendConnected && lmstudioConnected && modelMatch
+    const errorText = status?.details.error || inferenceResult?.inference.error || ''
+    const loadedModel = status?.details.loaded_models[0] || 'None'
+    const lastChecked = status?.details.last_checked ? new Date(status.details.last_checked * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Never'
+    const inferenceDetail = inferenceResult
+        ? inferenceResult.inference.error || (inferenceResult.ok ? `${inferenceResult.inference.latency_ms ?? 0} ms` : 'Inference test failed')
+        : 'Not checked automatically'
+
+    function copyError() {
+        navigator.clipboard?.writeText(errorText || JSON.stringify(status, null, 2))
+    }
+
+    return (
+        <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-black/55 p-4 pt-20 backdrop-blur-sm">
+            <div className="w-full max-w-5xl rounded-2xl border border-border bg-card shadow-2xl shadow-black/30">
+                <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                        <div className="flex items-center gap-2 text-sm font-semibold text-cyan-200"><Cpu size={17} /> Local AI Status</div>
+                        <h2 className="mt-2 text-2xl font-semibold text-foreground">{ready ? 'Local AI Ready' : status?.details.error || 'Running diagnostics'}</h2>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Auto-refresh checks FastAPI, LM Studio, and the loaded model only. The response prompt test runs only when you click Run Diagnostics.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <button onClick={onRefresh} className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-secondary px-3 text-sm text-foreground hover:bg-secondary">
+                            {loading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />} Refresh
+                        </button>
+                        <button onClick={onRunDiagnostics} disabled={!ready || inferenceLoading} className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-secondary px-3 text-sm text-foreground hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50">
+                            {inferenceLoading ? <Loader2 size={15} className="animate-spin" /> : <Activity size={15} />} Run Diagnostics
+                        </button>
+                        <button onClick={() => window.open('http://127.0.0.1:1234', '_blank')} className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-secondary px-3 text-sm text-foreground hover:bg-secondary"><ExternalLink size={15} /> Open LM Studio</button>
+                        <button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl border border-border text-muted-foreground hover:bg-secondary hover:text-foreground"><X size={16} /></button>
+                    </div>
+                </div>
+
+                <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+                    <main className="space-y-5">
+                        {loading && !status ? (
+                            <div className="grid gap-3 md:grid-cols-2">
+                                {[1, 2, 3, 4].map(item => <div key={item} className="h-24 animate-pulse rounded-2xl bg-secondary" />)}
+                            </div>
+                        ) : (
+                            <div className="grid gap-3 md:grid-cols-2">
+                                <CheckRow label="Backend" ok={backendConnected} detail={backendConnected ? 'Backend Running' : 'Backend Offline'} />
+                                <CheckRow label="LM Studio" ok={lmstudioConnected} pending={status?.lmstudio === 'loading'} detail={lmstudioConnected ? 'LM Studio Connected' : status?.details.error || 'Cannot connect to LM Studio'} />
+                                <CheckRow label="Loaded Model" ok={modelMatch} detail={modelMatch ? status?.model : 'Configured model does not match loaded model'} />
+                                <CheckRow label="Inference" ok={inferenceOk} pending={!inferenceChecked} detail={inferenceDetail} />
+                            </div>
+                        )}
+
+                        <div className="grid gap-3 md:grid-cols-3">
+                            <DiagnosticMetric label="Configured Model" value={status?.model || 'Unknown'} />
+                            <DiagnosticMetric label="Loaded Model" value={loadedModel} />
+                            <DiagnosticMetric label="Model Match" value={modelMatch ? 'Yes' : 'No'} />
+                            <DiagnosticMetric label="Status Latency" value={status?.details.latency_ms !== null && status?.details.latency_ms !== undefined ? `${status.details.latency_ms} ms` : 'N/A'} />
+                            <DiagnosticMetric label="Inference" value={inferenceResult ? inferenceResult.inference.status : 'Not checked'} />
+                            <DiagnosticMetric label="Last checked" value={lastChecked} />
+                        </div>
+
+                        <div className="rounded-2xl border border-border bg-secondary p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="font-semibold text-foreground">How to fix</div>
+                                <button onClick={copyError} className="inline-flex items-center gap-2 text-xs text-cyan-200"><Copy size={13} /> Copy Error</button>
+                            </div>
+                            <ul className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">
+                                {(inferenceResult?.fixes?.length ? inferenceResult.fixes : fixSuggestions(status)).map(item => <li key={item}>- {item}</li>)}
+                            </ul>
+                            {errorText && <pre className="mt-4 max-h-36 overflow-auto rounded-xl bg-background p-3 text-xs text-rose-100">{errorText}</pre>}
+                        </div>
+                    </main>
+
+                    <aside className="space-y-4">
+                        <div className="rounded-2xl border border-border bg-secondary p-4">
+                            <div className="font-semibold text-foreground">Environment</div>
+                            <dl className="mt-3 space-y-3 text-sm">
+                                <DiagnosticPair label="API URL" value={status?.details.api_url || API_BASE_URL} />
+                                <DiagnosticPair label="LM Studio URL" value={status?.details.lmstudio_url || 'http://127.0.0.1:1234/v1'} />
+                                <DiagnosticPair label="Provider" value={status?.details.provider || 'Unknown'} />
+                                <DiagnosticPair label="Configured model" value={status?.model || 'Unknown'} />
+                                <DiagnosticPair label="Loaded model" value={loadedModel} />
+                                <DiagnosticPair label="Environment" value={status?.details.environment || 'Unknown'} />
+                            </dl>
+                        </div>
+                        <div className="rounded-2xl border border-border bg-secondary p-4">
+                            <div className="font-semibold text-foreground">Recent logs</div>
+                            <div className="mt-3 space-y-2">
+                                {[
+                                    status ? `GET /api/system/status returned backend=${status.backend}, lmstudio=${status.lmstudio}.` : 'Status endpoint has not returned yet.',
+                                    inferenceResult ? `POST /api/system/inference-test ${inferenceResult.ok ? 'passed' : 'failed'} in ${inferenceResult.inference.latency_ms ?? 'N/A'} ms.` : 'Inference test has not been run.',
+                                ].map(log => <div key={log} className="rounded-xl bg-background p-3 text-xs leading-5 text-muted-foreground">{log}</div>)}
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function DiagnosticMetric({ label, value }: { label: string; value: string }) {
+    return <div className="rounded-2xl border border-border bg-secondary p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-2 truncate text-sm font-semibold text-foreground">{value}</div></div>
+}
+
+function DiagnosticPair({ label, value }: { label: string; value: string }) {
+    return <div><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-all text-foreground">{value}</dd></div>
 }

@@ -26,31 +26,60 @@ from config.settings import settings
 from utils.logger import get_logger
 import asyncio
 from orchestrator.async_orchestrator import AsyncOrchestrator
+from api.services.system_runtime import mark_service, start_background_monitors
 
 logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting Student AI Platform backend (FastAPI) - lifespan start")
-    # initialize async orchestrator, persistent memory and event bus
+    logger.info("Backend Started")
     app.state.persistent_memory = PersistentMemory()
     app.state.event_bus = EventBus(persistent=app.state.persistent_memory)
     app.state.orchestrator = AsyncOrchestrator()
-    await app.state.orchestrator.start(app.state.event_bus)
+    app.state._background_tasks = []
+    mark_service("resume", "online")
+    mark_service("knowledge", "online")
+    mark_service("project_builder", "loading")
+    mark_service("workflow_studio", "loading")
+    mark_service("rag", "offline")
 
-    # Start websocket broadcaster task (EventBus compatible)
-    broadcaster_task = asyncio.create_task(start_broadcaster(app.state.event_bus))
-    app.state._broadcaster_task = broadcaster_task
+    async def start_orchestrator_background():
+        try:
+            await app.state.orchestrator.start(app.state.event_bus)
+            mark_service("agents", "online")
+            mark_service("project_builder", "online")
+            mark_service("workflow_studio", "online")
+            logger.info("Project Agent Ready")
+            logger.info("Workflow Studio Ready")
+        except Exception as exc:
+            mark_service("agents", "offline")
+            mark_service("project_builder", "offline")
+            mark_service("workflow_studio", "offline")
+            logger.exception("Error Loading Model or agent runtime: %s", exc)
+
+    app.state._background_tasks.append(asyncio.create_task(start_orchestrator_background()))
+    app.state._background_tasks.append(asyncio.create_task(start_broadcaster(app.state.event_bus)))
+    app.state._background_tasks.append(start_background_monitors())
+    logger.info("Router Loaded")
+    logger.info("Health Ready")
 
     try:
         yield
     finally:
         logger.info("Shutting down Student AI Platform backend - cancelling background tasks")
+        for task in getattr(app.state, "_background_tasks", []):
+            task.cancel()
+        for task in getattr(app.state, "_background_tasks", []):
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                logger.exception("Background task shutdown failed")
         try:
-            broadcaster_task.cancel()
-            await broadcaster_task
+            await app.state.orchestrator.stop()
         except Exception:
-            pass
+            logger.exception("Orchestrator shutdown failed")
 
 
 app = FastAPI(title="Student AI Platform - Backend",
@@ -123,4 +152,4 @@ async def test(req: TestRequest):
 
 if __name__ == "__main__":
     # For local development: `python backend/app.py`
-    uvicorn.run("app:app", host="0.0.0.0", port=8002, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

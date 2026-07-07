@@ -14,6 +14,8 @@ import { Badge, Button, Card, FeatureCard } from '../ui'
 import * as api from '../../lib/api'
 import { StudentView } from './types'
 import { useStore } from '../../lib/store'
+import CareerRoadmapMentor from './CareerRoadmapMentor'
+import AIResponseRenderer from '../ai/AIResponseRenderer'
 
 const promptSuggestions = [
     'Create AI/ML Roadmap',
@@ -112,20 +114,6 @@ function clampPercent(value: unknown, fallback = 0) {
     const number = Number(value)
     if (!Number.isFinite(number)) return fallback
     return Math.max(0, Math.min(100, Math.round(number)))
-}
-
-function resumeFeedback(profile: string, targetRole: string) {
-    return {
-        score: profile.trim() ? 78 : 64,
-        summary: `Your resume is directionally strong for ${targetRole || 'your target role'}, but it should show clearer outcomes, stronger keywords, and more project impact.`,
-        bullets: [
-            'Built a full-stack student AI platform that converts career goals into weekly roadmaps, project plans, resume feedback, and interview prep.',
-            'Integrated Next.js and FastAPI APIs with timeout handling and local fallbacks to keep AI workflows responsive during backend outages.',
-            'Designed student-focused workflows for resume review, project building, knowledge search, and mentor guidance.',
-        ],
-        skills: ['React', 'Next.js', 'FastAPI', 'Python', 'AI product design', 'API integration', 'Prompt design'],
-        improvements: ['Add measurable outcomes to every project bullet', 'Mirror keywords from target job descriptions', 'Move strongest technical projects above older coursework', 'Keep each bullet to one clear impact statement'],
-    }
 }
 
 export function HomePage({ onPrompt }: { onPrompt: (prompt: string) => void }) {
@@ -337,6 +325,10 @@ export function ChatPage() {
 }
 
 export function RoadmapPage() {
+    return <CareerRoadmapMentor />
+}
+
+function LegacyRoadmapPage() {
     const [goal, setGoal] = useState('')
     const [skills, setSkills] = useState('')
     const [timeframe, setTimeframe] = useState('12 weeks')
@@ -555,53 +547,164 @@ export function ResumePage() {
     const [text, setText] = useState('')
     const [profile, setProfile] = useState('')
     const [targetRole, setTargetRole] = useState('')
-    const [jobKeywords, setJobKeywords] = useState('React, Python, APIs, projects, internship')
+    const [jobKeywords, setJobKeywords] = useState('')
     const [fileName, setFileName] = useState('')
-    const [result, setResult] = useState<any>(null)
+    const [fileSize, setFileSize] = useState('')
+    const [analysis, setAnalysis] = useState<api.ResumeAnalysis | null>(null)
     const [loading, setLoading] = useState(false)
-    const [checkedKeywords, setCheckedKeywords] = useState<Record<string, boolean>>({})
+    const [uploading, setUploading] = useState(false)
+    const [uploadProgress, setUploadProgress] = useState(0)
+    const [uploadMessage, setUploadMessage] = useState('')
+    const [error, setError] = useState('')
+    const [hydrated, setHydrated] = useState(false)
+    const maxResumeBytes = 20 * 1024 * 1024
+    const storageKey = 'student-ai:resume-builder'
+    const hasResumeText = Boolean(text.trim())
+    const canAnalyze = hasResumeText && Boolean(targetRole.trim()) && !loading
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(storageKey)
+            if (!saved) return
+            const parsed = JSON.parse(saved)
+            setText(String(parsed.text || ''))
+            setProfile(String(parsed.profile || ''))
+            setTargetRole(String(parsed.targetRole || ''))
+            setJobKeywords(String(parsed.jobKeywords || ''))
+            setFileName(String(parsed.fileName || ''))
+            setFileSize(String(parsed.fileSize || ''))
+            if (parsed.text && parsed.analysis) setAnalysis(parsed.analysis)
+        } catch {
+            localStorage.removeItem(storageKey)
+        } finally {
+            setHydrated(true)
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!hydrated) return
+        if (!text.trim()) {
+            setAnalysis(null)
+            localStorage.setItem(storageKey, JSON.stringify({ text, profile, targetRole, jobKeywords, fileName, fileSize }))
+            return
+        }
+        localStorage.setItem(storageKey, JSON.stringify({ text, profile, targetRole, jobKeywords, fileName, fileSize, analysis }))
+    }, [analysis, fileName, fileSize, hydrated, jobKeywords, profile, targetRole, text])
 
     async function analyze() {
+        if (!canAnalyze) return
         setLoading(true)
-        const fallback = resumeFeedback(`${profile}\n${text}`, targetRole)
+        setError('')
         try {
-            const response = await api.detectSkills({ resume: text, profile, targetRole, jobKeywords, mode: 'resume_ats' })
-            setResult({ ...fallback, raw: response })
-        } catch {
-            setResult(fallback)
+            const result = await api.analyzeResume({
+                resume_text: text.trim(),
+                target_role: targetRole.trim(),
+                job_keywords: asList(jobKeywords),
+                manual_profile: profile.trim(),
+            })
+            setAnalysis(result)
+        } catch (err) {
+            setAnalysis(null)
+            setError(err instanceof Error ? err.message : 'AI model is not connected. Start LM Studio/backend and retry.')
         } finally {
             setLoading(false)
         }
     }
 
+    function validateResumeFile(file: File) {
+        const extension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
+        if (!['.pdf', '.docx', '.txt', '.md'].includes(extension)) return 'Please upload a PDF, DOCX, TXT, or MD file.'
+        if (file.size > maxResumeBytes) return 'Resume file is larger than 20 MB.'
+        return ''
+    }
+
     async function handleResumeUpload(file?: File) {
         if (!file) return
+        const validation = validateResumeFile(file)
+        setError('')
+        setUploadMessage('')
+        setUploadProgress(0)
         setFileName(file.name)
-        try {
+        setFileSize(`${(file.size / 1024 / 1024).toFixed(2)} MB`)
+        setAnalysis(null)
+        if (validation) {
+            setError(validation)
+            return
+        }
+        const lowerName = file.name.toLowerCase()
+        const readableInBrowser = lowerName.endsWith('.txt') || lowerName.endsWith('.md') || file.type.startsWith('text/')
+        if (readableInBrowser) {
             const content = await file.text()
             setText(content.slice(0, 30_000))
-        } catch {
-            setText(current => current || `Uploaded file: ${file.name}. Paste resume text here if the file cannot be read in browser.`)
+            setUploadMessage('Resume text extracted locally. Add a target role, then run analysis.')
+            return
+        }
+        setUploading(true)
+        try {
+            await api.uploadKnowledge(file, 'resumes', setUploadProgress)
+            setUploadMessage('Resume file saved to the backend. Paste the resume text to run AI analysis if extraction is not available yet.')
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Resume upload failed. Paste resume text manually to continue.')
+        } finally {
+            setUploading(false)
         }
     }
 
-    const data = result || resumeFeedback(profile, targetRole)
-    const keywords = asList(jobKeywords)
-    const matchedKeywords = keywords.filter(keyword => {
-        const key = keyword.toLowerCase()
-        return checkedKeywords[key] || `${text} ${profile}`.toLowerCase().includes(key)
-    })
-    const keywordScore = keywords.length ? Math.round((matchedKeywords.length / keywords.length) * 100) : 0
-    const exportText = `ATS Score: ${data.score}/100\n\n${data.summary}\n\nImproved bullets:\n${data.bullets.map((bullet: string) => `- ${bullet}`).join('\n')}\n\nSkills:\n${data.skills.join(', ')}\n\nImprovements:\n${data.improvements.map((item: string) => `- ${item}`).join('\n')}`
+    const exportMarkdown = analysis ? `# Resume Analysis for ${targetRole}
 
-    function downloadText() {
-        const blob = new Blob([exportText], { type: 'text/plain' })
+ATS Score: ${analysis.ats_score}/100
+Keyword Fit: ${analysis.keyword_fit}/100
+
+## Summary
+${analysis.summary}
+
+## Strengths
+${analysis.strengths.map(item => `- ${item}`).join('\n')}
+
+## Weaknesses
+${analysis.weaknesses.map(item => `- ${item}`).join('\n')}
+
+## Missing Keywords
+${analysis.missing_keywords.map(item => `- ${item}`).join('\n')}
+
+## Improved Bullets
+${analysis.improved_bullets.map(item => `- ${item}`).join('\n')}
+
+## Skills To Add
+${analysis.skills_to_add.map(item => `- ${item}`).join('\n')}
+
+## Priority Improvements
+${analysis.priority_improvements.map(item => `- ${item}`).join('\n')}
+
+## Rewritten Summary
+${analysis.rewritten_summary}
+
+## Interview Readiness
+${analysis.interview_readiness}
+
+## Next Steps
+${analysis.next_steps.map(item => `- ${item}`).join('\n')}
+` : ''
+
+    function downloadAnalysis(extension: 'txt' | 'md') {
+        if (!analysis) return
+        const blob = new Blob([exportMarkdown], { type: extension === 'md' ? 'text/markdown' : 'text/plain' })
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
-        link.download = 'resume-feedback.txt'
+        link.download = `resume-analysis.${extension}`
         link.click()
         URL.revokeObjectURL(url)
+    }
+
+    function ListCard({ title, items }: { title: string; items: string[] }) {
+        return <div className="rounded-2xl bg-secondary p-4"><div className="text-sm font-semibold text-foreground">{title}</div><ul className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">{items.map(item => <li key={item}>- {item}</li>)}</ul></div>
+    }
+
+    function updateInput(setter: (value: string) => void, value: string) {
+        setter(value)
+        setAnalysis(null)
+        setError('')
     }
 
     return (
@@ -609,41 +712,57 @@ export function ResumePage() {
             <Panel>
                 <FileText className="mb-4 h-8 w-8 text-cyan-200" />
                 <h2 className="text-2xl font-semibold text-foreground">Resume Builder</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Upload or paste your resume, add your profile, then generate ATS-style feedback, stronger bullets, skills, and a clean text export.</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Upload or paste your resume, choose a target role, then run a real AI analysis for ATS fit, keyword gaps, stronger bullets, and next steps.</p>
                 <label className="mt-6 flex cursor-pointer items-center justify-center gap-2 rounded-3xl border border-dashed border-border bg-secondary p-6 text-sm text-muted-foreground hover:border-cyan-400/40">
                     <Upload size={18} />
-                    {fileName || 'Upload resume file'}
-                    <input type="file" className="hidden" accept=".txt,.md,.csv,.json" onChange={event => handleResumeUpload(event.target.files?.[0])} />
+                    {fileName ? `${fileName} (${fileSize})` : 'Upload resume file'}
+                    <input type="file" className="hidden" accept=".pdf,.docx,.txt,.md,application/pdf,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={event => handleResumeUpload(event.target.files?.[0])} />
                 </label>
+                {uploading && <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-cyan-300 transition-[width]" style={{ width: `${uploadProgress}%` }} /></div>}
+                {uploadMessage && <div className="mt-3 rounded-2xl border border-emerald-300/25 bg-emerald-300/10 p-3 text-sm leading-6 text-emerald-100">{uploadMessage}</div>}
+                {error && <div className="mt-3 rounded-2xl border border-rose-400/30 bg-rose-400/10 p-3 text-sm leading-6 text-rose-100">{error}<div className="mt-2 text-rose-100/80">Check that the backend is running, LM Studio is started, and a model is loaded.</div></div>}
                 <div className="mt-5 space-y-4">
-                    <label className="block"><span className="text-sm font-medium text-muted-foreground">Target role</span><input value={targetRole} onChange={event => setTargetRole(event.target.value)} placeholder="AI engineer intern, frontend developer..." className="mt-2 w-full rounded-2xl border border-border bg-background p-4 text-sm text-foreground outline-none" /></label>
-                    <Field label="Job keywords" value={jobKeywords} onChange={setJobKeywords} placeholder="Paste important skills from the job description..." />
-                    <Field label="Manual profile" value={profile} onChange={setProfile} placeholder="Education, experience, achievements, strongest projects..." />
-                    <Field label="Resume text" value={text} onChange={setText} placeholder="Paste your resume content or project bullets..." />
-                    <button onClick={analyze} disabled={loading || (!text.trim() && !profile.trim())} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-300 to-violet-500 px-4 py-4 font-medium text-foreground disabled:opacity-60">{loading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}Analyze resume</button>
+                    <label className="block"><span className="text-sm font-medium text-muted-foreground">Target role</span><input value={targetRole} onChange={event => updateInput(setTargetRole, event.target.value)} placeholder="AI engineer intern, frontend developer..." className="mt-2 w-full rounded-2xl border border-border bg-background p-4 text-sm text-foreground outline-none" /></label>
+                    <Field label="Job keywords" value={jobKeywords} onChange={value => updateInput(setJobKeywords, value)} placeholder="Paste important skills from the job description..." />
+                    <Field label="Manual profile" value={profile} onChange={value => updateInput(setProfile, value)} placeholder="Education, experience, achievements, strongest projects..." />
+                    <Field label="Resume text" value={text} onChange={value => updateInput(setText, value)} placeholder="Paste your resume content or project bullets..." />
+                    <button onClick={analyze} disabled={!canAnalyze} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-300 to-violet-500 px-4 py-4 font-medium text-foreground disabled:cursor-not-allowed disabled:opacity-50">{loading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}{loading ? 'Analyzing...' : error ? 'Retry' : analysis ? 'Regenerate Analysis' : 'Analyze Resume'}</button>
+                    {!hasResumeText || !targetRole.trim() ? <p className="text-sm leading-6 text-muted-foreground">Upload your resume or paste your resume text and enter a target role to receive AI-powered feedback.</p> : null}
                 </div>
             </Panel>
             <Panel>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div><div className="text-sm text-muted-foreground">ATS-style score</div><div className="mt-1 text-4xl font-semibold text-foreground">{data.score}/100</div><div className="mt-1 text-sm text-cyan-100">Keyword fit {keywordScore}%</div></div>
-                    <div className="flex gap-2"><CopyButton text={exportText} /><button onClick={downloadText} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary"><Download size={15} />Text</button></div>
-                </div>
-                <p className="mt-4 text-sm leading-6 text-muted-foreground">{data.summary}</p>
-                <div className="mt-5 rounded-2xl border border-border bg-secondary p-4">
-                    <div className="mb-3 flex items-center justify-between text-sm"><span className="font-semibold text-foreground">Job keyword checklist</span><span className="text-cyan-100">{matchedKeywords.length}/{keywords.length || 1}</span></div>
-                    <div className="flex flex-wrap gap-2">
-                        {keywords.map(keyword => {
-                            const key = keyword.toLowerCase()
-                            const present = matchedKeywords.includes(keyword)
-                            return <button key={keyword} onClick={() => setCheckedKeywords(state => ({ ...state, [key]: !state[key] }))} className={`rounded-full border px-3 py-1 text-xs ${present ? 'border-emerald-300/25 bg-emerald-300/10 text-emerald-100' : 'border-border bg-secondary text-muted-foreground'}`}>{keyword}</button>
-                        })}
+                {!analysis ? (
+                    <div className="grid min-h-[520px] place-items-center text-center">
+                        <div>
+                            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-secondary text-cyan-200"><FileText size={24} /></div>
+                            <h3 className="mt-5 text-xl font-semibold text-foreground">Upload your resume or paste your resume text to receive AI-powered feedback.</h3>
+                            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground">No ATS score, keyword fit, skills, or suggestions are shown until the AI agent analyzes your actual resume content for a target role.</p>
+                        </div>
                     </div>
-                </div>
-                <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                    <div className="rounded-2xl bg-secondary p-4"><div className="text-sm font-semibold text-foreground">Improved bullet points</div><ul className="mt-3 space-y-2 text-sm text-muted-foreground">{data.bullets.map((bullet: string) => <li key={bullet}>- {bullet}</li>)}</ul></div>
-                    <div className="rounded-2xl bg-secondary p-4"><div className="text-sm font-semibold text-foreground">Skills section</div><div className="mt-3 flex flex-wrap gap-2">{data.skills.map((skill: string) => <span key={skill} className="rounded-full bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">{skill}</span>)}</div></div>
-                </div>
-                <div className="mt-4 rounded-2xl border border-border p-4"><div className="text-sm font-semibold text-foreground">Priority improvements</div><ul className="mt-3 space-y-2 text-sm text-muted-foreground">{data.improvements.map((item: string) => <li key={item}>- {item}</li>)}</ul></div>
+                ) : (
+                    <>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-2xl border border-border bg-secondary p-4"><div className="text-sm text-muted-foreground">ATS Score</div><div className="mt-1 text-4xl font-semibold text-foreground">{analysis.ats_score}/100</div></div>
+                                <div className="rounded-2xl border border-border bg-secondary p-4"><div className="text-sm text-muted-foreground">Keyword Fit</div><div className="mt-1 text-4xl font-semibold text-foreground">{analysis.keyword_fit}/100</div></div>
+                            </div>
+                            <div className="flex flex-wrap gap-2"><CopyButton text={exportMarkdown} /><button onClick={() => navigator.clipboard?.writeText(analysis.improved_bullets.join('\n'))} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary"><Copy size={15} />Bullets</button><button onClick={() => downloadAnalysis('txt')} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary"><Download size={15} />TXT</button><button onClick={() => downloadAnalysis('md')} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary"><Download size={15} />MD</button></div>
+                        </div>
+                        <p className="mt-5 rounded-2xl border border-border bg-secondary p-4 text-sm leading-6 text-muted-foreground">{analysis.summary}</p>
+                        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                            <ListCard title="Strengths" items={analysis.strengths} />
+                            <ListCard title="Weaknesses" items={analysis.weaknesses} />
+                            <ListCard title="Missing Keywords" items={analysis.missing_keywords} />
+                            <ListCard title="Skills To Add" items={analysis.skills_to_add} />
+                            <ListCard title="Improved Bullet Points" items={analysis.improved_bullets} />
+                            <ListCard title="Project Suggestions" items={analysis.project_suggestions} />
+                            <ListCard title="Priority Improvements" items={analysis.priority_improvements} />
+                            <ListCard title="Next Steps" items={analysis.next_steps} />
+                        </div>
+                        <div className="mt-4 rounded-2xl border border-border p-4"><div className="text-sm font-semibold text-foreground">Rewritten Professional Summary</div><p className="mt-3 text-sm leading-6 text-muted-foreground">{analysis.rewritten_summary}</p></div>
+                        <div className="mt-4 rounded-2xl border border-border p-4"><div className="text-sm font-semibold text-foreground">Interview Readiness</div><p className="mt-3 text-sm leading-6 text-muted-foreground">{analysis.interview_readiness}</p></div>
+                    </>
+                )}
             </Panel>
         </div>
     )
@@ -703,32 +822,55 @@ export function MentorPage() {
 export function KnowledgePage() {
     const [query, setQuery] = useState('')
     const [collection, setCollection] = useState('default')
-    const [documents, setDocuments] = useState<Array<{ name: string; topics: string[]; content: string; status: string; size: number; type: string }>>([])
+    const [documents, setDocuments] = useState<Array<{ name: string; topics: string[]; content: string; status: string; size: number; type: string; backendSaved?: boolean }>>([])
     const [result, setResult] = useState('')
     const [loading, setLoading] = useState(false)
     const [uploading, setUploading] = useState(false)
     const [uploadProgress, setUploadProgress] = useState(0)
     const [uploadMessage, setUploadMessage] = useState('')
     const [uploadError, setUploadError] = useState('')
+    const [selectedFile, setSelectedFile] = useState<File | null>(null)
+    const [connectionStatus, setConnectionStatus] = useState<api.KnowledgeConnectionStatus | null>(null)
+    const [checkingConnection, setCheckingConnection] = useState(false)
     const [isDragging, setIsDragging] = useState(false)
     const [selectedDoc, setSelectedDoc] = useState<string>('')
     const maxUploadBytes = 20 * 1024 * 1024
-    const acceptedExtensions = ['.pdf', '.txt', '.md']
-    const acceptedMimeTypes = ['application/pdf', 'text/plain', 'text/markdown']
+    const acceptedExtensions = ['.pdf', '.txt', '.md', '.docx']
+    const acceptedMimeTypes = ['application/pdf', 'text/plain', 'text/markdown', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
 
     function validateFile(file: File) {
         const extension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
         if (!acceptedExtensions.includes(extension) && !acceptedMimeTypes.includes(file.type)) {
-            return 'Please upload a PDF, TXT, or Markdown file.'
+            return 'Please upload PDF, TXT, MD, or DOCX.'
         }
         if (file.size > maxUploadBytes) {
-            return 'This file is too large. Please upload a file under 20 MB.'
+            return 'File is larger than 20 MB.'
         }
         return ''
     }
 
+    async function checkConnection() {
+        setCheckingConnection(true)
+        try {
+            setConnectionStatus(await api.checkKnowledgeConnection())
+        } finally {
+            setCheckingConnection(false)
+        }
+    }
+
+    function removeSelectedFile() {
+        if (selectedFile) {
+            setDocuments(items => items.filter(item => item.name !== selectedFile.name))
+        }
+        setSelectedFile(null)
+        setUploadError('')
+        setUploadMessage('')
+        setUploadProgress(0)
+    }
+
     async function upload(file?: File) {
         if (!file) return
+        setSelectedFile(file)
         const validationError = validateFile(file)
         setUploadError('')
         setUploadMessage('')
@@ -742,31 +884,34 @@ export function KnowledgePage() {
         const topics = file.name.replace(/\.[^.]+$/, '').split(/[-_\s]+/).filter(Boolean).slice(0, 5)
         let content = ''
         const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf'
-        if (!isPdf) {
+        const isTextReadable = file.name.toLowerCase().endsWith('.txt') || file.name.toLowerCase().endsWith('.md') || file.type.startsWith('text/')
+        if (isTextReadable) {
             try { content = (await file.text()).slice(0, 40_000) } catch { content = '' }
         }
         const words = content.toLowerCase().match(/[a-z][a-z0-9+#.-]{2,}/g) || []
         const extracted = Array.from(new Set(words.filter(word => !['the', 'and', 'for', 'with', 'this', 'that', 'from'].includes(word)))).slice(0, 6)
         const document = {
             name: file.name,
-            topics: topics.length ? topics : extracted.length ? extracted : isPdf ? ['pdf'] : ['notes'],
+            topics: topics.length ? topics : extracted.length ? extracted : isPdf ? ['pdf'] : ['document'],
             content,
-            status: isPdf ? 'PDF uploaded. Text extraction is pending.' : 'Ready to search locally.',
+            status: 'Uploading to backend...',
             size: file.size,
-            type: isPdf ? 'PDF' : 'Document',
+            type: file.name.toLowerCase().endsWith('.docx') ? 'DOCX' : isPdf ? 'PDF' : 'Document',
+            backendSaved: false,
         }
         setDocuments(items => [document, ...items.filter(item => item.name !== file.name)])
         setSelectedDoc(file.name)
         try {
             const response = await api.uploadKnowledge(file, collection, setUploadProgress)
             const indexed = Number((response as any)?.result?.indexed_chunks ?? 0)
-            const nextStatus = isPdf && indexed === 0 ? 'PDF uploaded. Text extraction is pending.' : 'Uploaded and indexed.'
-            setDocuments(items => items.map(item => item.name === file.name ? { ...item, status: nextStatus } : item))
+            const nextStatus = response.message || (indexed === 0 ? 'File uploaded successfully. Text extraction is pending.' : 'Uploaded and indexed.')
+            setDocuments(items => items.map(item => item.name === file.name ? { ...item, status: nextStatus, backendSaved: true } : item))
             setUploadMessage(nextStatus)
             setUploadProgress(100)
         } catch (error) {
-            setDocuments(items => items.map(item => item.name === file.name ? { ...item, status: 'Saved locally. Backend upload failed.' } : item))
-            setUploadError(error instanceof Error ? `Upload failed: ${error.message}` : 'Upload failed. The document was kept locally so you can still search its filename and text preview.')
+            const message = error instanceof Error ? error.message : 'Upload failed. Check backend logs for details.'
+            setDocuments(items => items.map(item => item.name === file.name ? { ...item, status: 'Local fallback only. Backend upload failed.', backendSaved: false } : item))
+            setUploadError(message)
         } finally {
             setUploading(false)
         }
@@ -795,6 +940,7 @@ export function KnowledgePage() {
     }
     const topics = Array.from(new Set(documents.flatMap(doc => doc.topics))).slice(0, 12)
     const activeDocument = documents.find(doc => doc.name === selectedDoc) || documents[0]
+    const selectedFileSize = selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : ''
 
     return (
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
@@ -803,6 +949,20 @@ export function KnowledgePage() {
                 <h2 className="text-2xl font-semibold text-foreground">Knowledge Base</h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">Upload documents, search your learning material, extract topics, and ask retrieval-style questions.</p>
                 <label className="mt-6 block"><span className="text-sm font-medium text-muted-foreground">Collection</span><input value={collection} onChange={event => setCollection(event.target.value || 'default')} className="mt-2 w-full rounded-2xl border border-border bg-background p-4 text-sm text-foreground outline-none" /></label>
+                <div className="mt-5 flex flex-wrap gap-2">
+                    <button onClick={checkConnection} disabled={checkingConnection} className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-60">
+                        {checkingConnection ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />} Check connection
+                    </button>
+                    {selectedFile && <button onClick={() => upload(selectedFile)} disabled={uploading} className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-60"><RefreshCw size={15} /> Retry upload</button>}
+                    {selectedFile && <button onClick={removeSelectedFile} disabled={uploading} className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-60"><X size={15} /> Remove file</button>}
+                </div>
+                {connectionStatus && (
+                    <div className={`mt-3 rounded-2xl border p-3 text-xs leading-5 ${connectionStatus.backendConnected && connectionStatus.knowledgeEndpointAvailable ? 'border-emerald-300/25 bg-emerald-300/10 text-emerald-100' : 'border-amber-300/25 bg-amber-300/10 text-amber-100'}`}>
+                        <div className="font-medium">{connectionStatus.message}</div>
+                        <div className="mt-1 opacity-80">API: {connectionStatus.apiUrl}</div>
+                        {connectionStatus.details && <div className="mt-1 opacity-80">{connectionStatus.details}</div>}
+                    </div>
+                )}
                 <label
                     onDragOver={event => { event.preventDefault(); setIsDragging(true) }}
                     onDragLeave={() => setIsDragging(false)}
@@ -811,15 +971,27 @@ export function KnowledgePage() {
                 >
                     <Upload className="mb-3" size={26} />
                     <span className="font-semibold text-foreground">Drop a PDF or document here</span>
-                    <span className="mt-2 text-sm text-muted-foreground">or click to choose .pdf, .txt, or .md files up to 20 MB</span>
-                    <input type="file" className="hidden" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" onChange={event => upload(event.target.files?.[0])} />
+                    <span className="mt-2 text-sm text-muted-foreground">or click to choose .pdf, .txt, .md, or .docx files up to 20 MB</span>
+                    <input type="file" className="hidden" accept=".pdf,.txt,.md,.docx,application/pdf,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={event => upload(event.target.files?.[0])} />
                 </label>
+                {selectedFile && (
+                    <div className="mt-3 rounded-2xl border border-border bg-secondary p-3 text-sm">
+                        <div className="font-medium text-foreground">{selectedFile.name}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{selectedFileSize} selected for backend upload</div>
+                    </div>
+                )}
                 {(uploading || uploadMessage || uploadError) && (
                     <div className={`mt-4 rounded-2xl border p-4 text-sm ${uploadError ? 'border-rose-400/30 bg-rose-400/10 text-rose-100' : 'border-emerald-300/25 bg-emerald-300/10 text-emerald-100'}`}>
                         <div className="flex items-center justify-between gap-3">
                             <span>{uploadError || uploadMessage || 'Uploading document...'}</span>
                             {uploading && <span>{uploadProgress}%</span>}
                         </div>
+                        {uploadError && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {selectedFile && <button onClick={() => upload(selectedFile)} className="rounded-xl border border-rose-200/25 px-3 py-2 text-xs hover:bg-rose-200/10">Retry upload</button>}
+                                <button onClick={() => navigator.clipboard?.writeText(uploadError)} className="inline-flex items-center gap-2 rounded-xl border border-rose-200/25 px-3 py-2 text-xs hover:bg-rose-200/10"><Copy size={13} /> Copy error details</button>
+                            </div>
+                        )}
                         {uploading && <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-cyan-300 transition-[width]" style={{ width: `${uploadProgress}%` }} /></div>}
                     </div>
                 )}
@@ -832,7 +1004,7 @@ export function KnowledgePage() {
                 <Panel>
                     <div className="flex items-center justify-between"><div className="text-sm font-semibold text-foreground">Documents</div><div className="text-xs text-muted-foreground">{documents.length} uploaded</div></div>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        {documents.length ? documents.map(doc => <button key={doc.name} onClick={() => setSelectedDoc(doc.name)} className={`rounded-2xl p-4 text-left transition ${activeDocument?.name === doc.name ? 'bg-cyan-300/10' : 'bg-secondary hover:bg-secondary'}`}><div className="flex items-start justify-between gap-3"><div className="font-medium text-foreground">{doc.name}</div><span className="rounded-full bg-secondary px-2 py-1 text-xs text-muted-foreground">{doc.type}</span></div><div className="mt-2 text-xs text-muted-foreground">{(doc.size / 1024 / 1024).toFixed(2)} MB - {doc.status}</div><div className="mt-2 flex flex-wrap gap-2">{doc.topics.map(topic => <span key={topic} className="rounded-full bg-cyan-300/10 px-2 py-1 text-xs text-cyan-100">{topic}</span>)}</div><div className="mt-3 line-clamp-2 text-xs text-muted-foreground">{doc.content || doc.status}</div></button>) : <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground md:col-span-2">No documents uploaded yet. Upload a PDF, TXT, or Markdown file to start searching.</div>}
+                        {documents.length ? documents.map(doc => <button key={doc.name} onClick={() => setSelectedDoc(doc.name)} className={`rounded-2xl p-4 text-left transition ${activeDocument?.name === doc.name ? 'bg-cyan-300/10' : 'bg-secondary hover:bg-secondary'}`}><div className="flex items-start justify-between gap-3"><div className="font-medium text-foreground">{doc.name}</div><span className="rounded-full bg-secondary px-2 py-1 text-xs text-muted-foreground">{doc.type}</span></div><div className="mt-2 text-xs text-muted-foreground">{(doc.size / 1024 / 1024).toFixed(2)} MB - {doc.status}</div><div className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs ${doc.backendSaved ? 'bg-emerald-300/10 text-emerald-100' : 'bg-amber-300/10 text-amber-100'}`}>{doc.backendSaved ? 'Backend saved' : 'Local fallback'}</div><div className="mt-2 flex flex-wrap gap-2">{doc.topics.map(topic => <span key={topic} className="rounded-full bg-cyan-300/10 px-2 py-1 text-xs text-cyan-100">{topic}</span>)}</div><div className="mt-3 line-clamp-2 text-xs text-muted-foreground">{doc.content || doc.status}</div></button>) : <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground md:col-span-2">No documents uploaded yet. Upload a PDF, TXT, Markdown, or DOCX file to start searching.</div>}
                     </div>
                 </Panel>
                 <Panel>
@@ -850,7 +1022,7 @@ function AssistantPage({ icon: Icon, title, subtitle, input, setInput, button, l
     return (
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-5 xl:grid-cols-[440px_minmax(0,1fr)]">
             <Panel><Icon className="mb-4 h-8 w-8 text-cyan-200" /><h2 className="text-2xl font-semibold text-foreground">{title}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{subtitle}</p>{upload && <label className="mt-6 flex cursor-pointer items-center justify-center gap-2 rounded-3xl border border-dashed border-border bg-secondary p-6 text-sm text-muted-foreground hover:border-cyan-400/40"><Upload size={18} />Upload document<input type="file" className="hidden" onChange={async event => { const file = event.target.files?.[0]; if (file) { try { setInput(`Uploaded: ${file.name}`); await api.uploadKnowledge(file) } catch { setInput(`Uploaded locally: ${file.name}`) } } }} /></label>}<Field label="What should AI help with?" value={input} onChange={setInput} placeholder="Paste context, ask a question, or describe the output you want..." /><button onClick={onRun} disabled={loading || !input.trim()} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-300 to-violet-500 px-4 py-4 font-medium text-foreground disabled:opacity-60">{loading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}{button}</button></Panel>
-            <Panel><div className="mb-4 flex items-center justify-between"><h3 className="text-xl font-semibold text-foreground">AI output</h3>{result && <button onClick={() => navigator.clipboard?.writeText(result)} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground"><Copy size={15} />Copy</button>}</div><pre className="min-h-[420px] whitespace-pre-wrap rounded-3xl border border-border bg-background p-5 text-sm leading-7 text-muted-foreground">{result || 'Your generated answer will appear here with actionable next steps.'}</pre></Panel>
+            <Panel><div className="mb-4 flex items-center justify-between"><h3 className="text-xl font-semibold text-foreground">AI output</h3>{result && <button onClick={() => navigator.clipboard?.writeText(result)} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground"><Copy size={15} />Copy</button>}</div><div className="min-h-[420px] rounded-3xl border border-border bg-background p-5">{result ? <AIResponseRenderer content={result} /> : <div className="grid min-h-[360px] place-items-center text-center text-sm leading-7 text-muted-foreground">Your generated answer will appear here with actionable next steps.</div>}</div></Panel>
         </div>
     )
 }
@@ -898,7 +1070,7 @@ export function WorkflowsPage() {
                 </div>
                 <div className="mt-6 space-y-3">{active.steps.map((step, index) => { const threshold = ((index + 1) / active.steps.length) * 100; const done = progress >= threshold; return <div key={step} className="flex items-center gap-3 rounded-2xl border border-border bg-secondary p-4"><span className={`grid h-8 w-8 place-items-center rounded-xl ${done ? 'bg-emerald-300/10 text-emerald-200' : 'bg-secondary text-muted-foreground'}`}>{done ? <CheckCircle2 size={17} /> : index + 1}</span><div><div className="text-sm font-medium text-foreground">{step}</div><div className="text-xs text-muted-foreground">{done ? 'Done' : running ? 'Waiting' : 'Ready'}</div></div></div> })}</div>
                 <div className="mt-5 h-2 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-violet-500 transition-[width]" style={{ width: `${progress}%` }} /></div>
-                <pre className="mt-5 min-h-[220px] whitespace-pre-wrap rounded-3xl border border-border bg-background p-5 text-sm leading-7 text-muted-foreground">{result || 'Run the workflow to generate student-focused results and next actions.'}</pre>
+                <div className="mt-5 min-h-[220px] rounded-3xl border border-border bg-background p-5">{result ? <AIResponseRenderer content={result} /> : <div className="grid min-h-[160px] place-items-center text-center text-sm leading-7 text-muted-foreground">Run the workflow to generate student-focused results and next actions.</div>}</div>
             </Panel>
         </div>
     )

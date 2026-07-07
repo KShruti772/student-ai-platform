@@ -1,0 +1,24 @@
+{
+  "session_id": "project-builder",
+  "messages": [],
+  "events": [
+    {
+      "type": "workflow_log",
+      "workflow_id": "6824c72a-fd76-412b-a3d8-7025eb01a72e",
+      "session_id": "project-builder",
+      "message": "Queued Project Builder Workflow",
+      "ts": 1783411212514
+    },
+    {
+      "type": "error",
+      "session_id": "project-builder",
+      "error": "Client error '400 Bad Request' for url 'http://127.0.0.1:1234/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+      "ts": 1783411300156
+    }
+  ],
+  "workflow_history": [],
+  "token_usage": {},
+  "metrics": {},
+  "agent_logs": [],
+  "created_ts": 1783411212539
+}

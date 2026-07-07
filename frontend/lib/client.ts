@@ -3,7 +3,7 @@ import { API_BASE_URL } from './endpoints'
 
 const client = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 90_000,
+    timeout: 120_000,
     headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',

@@ -1,8 +1,6 @@
 import React from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
 import { ChatMessage } from '../../lib/types'
+import AIResponseRenderer from '../ai/AIResponseRenderer'
 
 export default function MessageList({ messages }: { messages: ChatMessage[] }) {
     return (
@@ -13,9 +11,7 @@ export default function MessageList({ messages }: { messages: ChatMessage[] }) {
                         <div className="text-xs text-muted">{m.role === 'assistant' ? 'Assistant' : 'You'}</div>
                         {m.pending ? <div className="text-xs text-muted">Streaming…</div> : null}
                     </div>
-                    <div className="prose prose-invert text-sm leading-6 max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{m.content}</ReactMarkdown>
-                    </div>
+                    <AIResponseRenderer content={m.content} compact={m.role !== 'assistant'} maxChars={m.role === 'assistant' ? 3600 : 1200} />
                 </div>
             ))}
         </div>

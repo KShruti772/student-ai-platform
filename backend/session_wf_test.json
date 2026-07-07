@@ -1,0 +1,112 @@
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "stage:planner agent:PlannerAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'plan': '{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}'}"
+    },
+    {
+      "role": "system",
+      "content": "stage:architect agent:ArchitectAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': '{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}'}"
+    },
+    {
+      "role": "system",
+      "content": "stage:research agent:ResearchAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': '{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}'}"
+    },
+    {
+      "role": "system",
+      "content": "stage:coding agent:CodingAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': '{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}'}"
+    },
+    {
+      "role": "system",
+      "content": "stage:reviewer agent:ReviewerAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': '{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}'}"
+    },
+    {
+      "role": "system",
+      "content": "stage:explainer agent:ExplainerAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}"
+    },
+    {
+      "role": "system",
+      "content": "stage:execution agent:ExecutionAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': '{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}', 'notes': 'This is a simulated run. Replace with sandboxed execution for real runs.'}"
+    },
+    {
+      "role": "user",
+      "content": "Please produce an educational summary for the student based on the plan and explanations.\nPlan:\n{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}\nExplainer:\n{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"raw\": \"{\\\"simple\\\":\\\"ok\\\",\\\"files\\\": {\\\"main.py\\\":\\\"print(\\\"hi\\\")\\\"}, \\\"issues\\\": []}\"}"
+    },
+    {
+      "role": "system",
+      "content": "stage:mentor agent:MentorAgent"
+    },
+    {
+      "role": "assistant",
+      "content": "{'raw': '{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}'}"
+    }
+  ],
+  "plans": [
+    {
+      "goal": "Build a simple ML app",
+      "plan": "{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}"
+    },
+    {
+      "goal": "Build a simple ML app",
+      "plan": "{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}",
+      "architecture": {
+        "raw": "{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}"
+      }
+    }
+  ],
+  "code_files": {},
+  "explanations": [
+    {
+      "research": {
+        "raw": "{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}"
+      }
+    },
+    {
+      "explainer": "{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}"
+    },
+    {
+      "execution": {
+        "raw": "{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}",
+        "notes": "This is a simulated run. Replace with sandboxed execution for real runs."
+      }
+    },
+    {
+      "mentor": {
+        "raw": "{\"simple\":\"ok\",\"files\": {\"main.py\":\"print(\"hi\")\"}, \"issues\": []}"
+      }
+    }
+  ],
+  "debug_context": []
+}

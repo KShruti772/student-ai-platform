@@ -1,8 +1,6 @@
 import React from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
 import { ChatMessage } from '../../lib/types'
+import AIResponseRenderer from '../ai/AIResponseRenderer'
 
 export default function MessageFeed({ messages, onRetry }: { messages: ChatMessage[]; onRetry?: (message: string) => void }) {
     return (
@@ -24,9 +22,7 @@ export default function MessageFeed({ messages, onRetry }: { messages: ChatMessa
                                 <span>{isAssistant ? 'Assistant' : 'You'}</span>
                                 {message.pending ? <span className="text-cyan-200">Streaming…</span> : message.error ? <span className="text-rose-300">Error</span> : <span>Complete</span>}
                             </div>
-                            <div className="prose max-w-none text-sm leading-6">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{message.content}</ReactMarkdown>
-                            </div>
+                            <AIResponseRenderer content={message.content} compact={!isAssistant} maxChars={isAssistant ? 3600 : 1200} />
                         </div>
                     )
                 })

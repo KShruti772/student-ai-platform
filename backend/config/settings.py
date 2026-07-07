@@ -24,7 +24,8 @@ def _csv_env(name: str, default: str) -> list[str]:
 
 @dataclass
 class Settings:
-    # OpenAI-compatible LM Studio endpoint. FastAPI itself runs on port 8002.
+    # OpenAI-compatible LM Studio endpoint. FastAPI itself runs on port 8000 by default.
+    backend_api_url: str = os.getenv("BACKEND_API_URL", os.getenv("API_BASE_URL", "http://127.0.0.1:8000"))
     model_provider: str = os.getenv("MODEL_PROVIDER", "lmstudio")
     environment: str = os.getenv("ENVIRONMENT", os.getenv("ENV", "development"))
     openai_base_url: str = os.getenv(
@@ -44,8 +45,17 @@ class Settings:
         if self.cors_origins is None:
             self.cors_origins = _csv_env(
                 "CORS_ORIGINS",
-                "http://localhost:3000,http://127.0.0.1:3000",
+                "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001",
             )
+        required_origins = {
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3001",
+        }
+        for origin in required_origins:
+            if origin not in self.cors_origins:
+                self.cors_origins.append(origin)
 
 
 settings = Settings()

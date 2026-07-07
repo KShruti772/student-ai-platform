@@ -1,0 +1,16 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Explain regression"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"simple\": \"Simple explanation\", \"technical\": \"Technical details\", \"why\": \"Because it's useful\", \"analogy\": \"Like a teacher\", \"best_practices\": [\"practice\"], \"common_mistakes\": [\"overfitting\"], \"learning_points\": [\"try a small project\"]}"
+    }
+  ],
+  "plans": [],
+  "code_files": {},
+  "explanations": [],
+  "debug_context": []
+}

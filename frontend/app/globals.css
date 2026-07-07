@@ -400,6 +400,65 @@ body {
     padding: 0.1rem 0.35rem;
 }
 
+.ai-response .prose h1,
+.ai-response .prose h2,
+.ai-response .prose h3 {
+    margin-top: 1.2rem;
+    margin-bottom: 0.55rem;
+    font-weight: 700;
+}
+
+.ai-response .prose ul,
+.ai-response .prose ol {
+    margin: 0.75rem 0;
+    padding-left: 1.25rem;
+}
+
+.ai-response .prose li {
+    margin: 0.35rem 0;
+}
+
+.ai-response .prose blockquote {
+    margin: 1rem 0;
+    border-left: 3px solid var(--accent-strong);
+    border-radius: 0.75rem;
+    background: var(--surface-2);
+    padding: 0.75rem 1rem;
+    color: var(--muted-foreground);
+}
+
+.ai-response .prose table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+}
+
+.ai-response .prose th,
+.ai-response .prose td {
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 0.9rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.ai-response .prose th {
+    background: var(--surface-2);
+    color: var(--foreground);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.ai-response .prose hr {
+    margin: 1.25rem 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+}
+
 @media (max-width: 640px) {
     .page-shell {
         padding: 1.5rem 1rem 5rem;

@@ -1,6 +1,6 @@
 import time
 from config.settings import settings
-from local_ai.llm_client import default_llm
+from local_ai.model_manager import model_manager
 
 try:
     import psutil
@@ -9,24 +9,23 @@ except Exception:
 
 
 def _probe_model() -> dict:
-    start = time.time()
-    try:
-        raw = default_llm.generate_response(
-            [{"role": "user", "content": "Ping"}],
-            max_tokens=1,
-            timeout=min(settings.ai_request_timeout, 30),
-        )
-        latency = int((time.time() - start) * 1000)
-        throughput = 1 if latency == 0 else int(1000 / max(latency, 1))
-        usage = raw.get("usage") if isinstance(raw, dict) else {}
-        tokens = usage.get("total_tokens") or usage.get("prompt_tokens") or 0
-        return {"latency": latency, "throughput": throughput, "tokens": tokens}
-    except Exception:
-        return {"latency": -1, "throughput": 0, "tokens": 0}
+    status = model_manager.status()
+    latency = status.get("latency_ms")
+    throughput = 0 if not latency or latency < 0 else int(1000 / max(latency, 1))
+    return {"latency": latency if latency is not None else -1, "throughput": throughput, "tokens": 0}
 
 
 async def get_model_status() -> dict:
-    return default_llm.model_status()
+    status = model_manager.status()
+    return {
+        "provider": settings.model_provider,
+        "base_url": settings.openai_base_url,
+        "model": settings.model_name,
+        "connected": status["lmstudio"] == "online",
+        "model_loaded": bool(status["model_ready"]),
+        "available_models": status["loaded_models"],
+        "error": status["error"],
+    }
 
 
 async def test_model() -> dict:
@@ -37,7 +36,7 @@ async def test_model() -> dict:
     ]
     start = time.time()
     try:
-        text = default_llm.generate_text(messages, max_tokens=80, timeout=settings.ai_request_timeout)
+        text = await model_manager.generate_text(messages, max_tokens=80, timeout=settings.ai_request_timeout, retries=1)
         return {
             "ok": True,
             "provider": settings.model_provider,
